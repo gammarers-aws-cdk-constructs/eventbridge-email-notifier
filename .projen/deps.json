@@ -1,6 +1,11 @@
 {
   "dependencies": [
     {
+      "name": "@aws-sdk/client-sns",
+      "version": "^3.1146.0",
+      "type": "build"
+    },
+    {
       "name": "@gammarers/projen-projects",
       "version": "^0.5.0",
       "type": "build"
@@ -32,6 +37,10 @@
     {
       "name": "commit-and-tag-version",
       "version": "^13",
+      "type": "build"
+    },
+    {
+      "name": "esbuild",
       "type": "build"
     },
     {
@@ -81,6 +90,16 @@
     },
     {
       "name": "projen",
+      "type": "build"
+    },
+    {
+      "name": "quiet-json-parser",
+      "version": "^0.3.2",
+      "type": "build"
+    },
+    {
+      "name": "strict-env-resolver",
+      "version": "^0.7.2",
       "type": "build"
     },
     {

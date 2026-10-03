@@ -51,6 +51,8 @@ junit.xml
 !/projenrc/tsconfig.json
 .jsii
 !/API.md
+/assets/
+!/src/funcs/sns-publish-function.ts
 !/.editorconfig
 !/.devcontainer/devcontainer.json
 !/.projenrc.ts

@@ -17,6 +17,7 @@
     ".projen/tasks.json",
     "LICENSE",
     "projenrc/tsconfig.json",
+    "src/funcs/sns-publish-function.ts",
     "test/tsconfig.json",
     "tsconfig.json"
   ],

@@ -158,6 +158,7 @@
         "devDependencies": [
           "**/test/**",
           "**/build-tools/**",
+          "src/funcs/sns-publish.lambda.ts",
           ".projenrc.ts",
           "projenrc/**/*.ts"
         ],
