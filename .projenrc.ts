@@ -3,6 +3,7 @@ import { awscdk } from 'projen';
 
 const project = new ProjenCdkConstructLibrary({
   releaseToNpm: true,
+  npmTrustedPublishing: true,
   cdkVersion: '2.272.0',
   name: 'eventbridge-email-notifier',
   repositoryUrl: 'https://github.com/gammarers-aws-cdk-constructs/eventbridge-email-notifier.git',
