@@ -1,5 +1,6 @@
 {
   "name": "eventbridge-email-notifier",
+  "description": "EventBridge rule target that sends email through Amazon SNS with a custom subject.",
   "repository": {
     "type": "git",
     "url": "https://github.com/gammarers-aws-cdk-constructs/eventbridge-email-notifier.git"
@@ -71,7 +72,12 @@
     "constructs": "^10.5.1"
   },
   "keywords": [
-    "cdk"
+    "aws",
+    "cdk",
+    "construct",
+    "email",
+    "eventbridge",
+    "notifier"
   ],
   "engines": {
     "node": ">= 20.0.0"

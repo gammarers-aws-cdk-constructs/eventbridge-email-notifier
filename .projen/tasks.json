@@ -358,9 +358,6 @@
       "description": "Run tests",
       "steps": [
         {
-          "spawn": "bundle"
-        },
-        {
           "execArgs": [
             "jest",
             "--passWithNoTests",

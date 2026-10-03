@@ -5,7 +5,8 @@ const project = new ProjenCdkConstructLibrary({
   cdkVersion: '2.272.0',
   name: 'eventbridge-email-notifier',
   repositoryUrl: 'https://github.com/gammarers-aws-cdk-constructs/eventbridge-email-notifier.git',
-  // *.lambda.ts handlers are bundled at build time so each channel can grow on its own.
+  description: 'EventBridge rule target that sends email through Amazon SNS with a custom subject.',
+  keywords: ['aws', 'cdk', 'construct', 'eventbridge', 'email', 'notifier'],
   lambdaOptions: {
     runtime: awscdk.LambdaRuntime.NODEJS_22_X,
   },
@@ -16,11 +17,4 @@ const project = new ProjenCdkConstructLibrary({
     'quiet-json-parser@^0.3.2',
   ],
 });
-
-// npm test does not run pre-compile; bundle assets before Jest synthesizes them.
-const bundleTask = project.tasks.tryFind('bundle');
-if (bundleTask !== undefined) {
-  project.testTask.prependSpawn(bundleTask);
-}
-
 project.synth();
