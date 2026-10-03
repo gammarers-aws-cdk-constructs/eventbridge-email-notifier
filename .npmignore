@@ -23,6 +23,7 @@ tsconfig.tsbuildinfo
 /.eslintrc.json
 /projenrc/tsconfig.json
 !.jsii
+!/assets/
 /.devcontainer
 /.gitattributes
 /.projenrc.ts

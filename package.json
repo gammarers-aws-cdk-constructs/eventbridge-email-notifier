@@ -1,13 +1,16 @@
 {
-  "name": "sns-email-notifier",
+  "name": "eventbridge-email-notifier",
   "repository": {
     "type": "git",
-    "url": "https://github.com/gammarers-aws-cdk-constructs/sns-email-notifier.git"
+    "url": "https://github.com/gammarers-aws-cdk-constructs/eventbridge-email-notifier.git"
   },
   "scripts": {
     "build": "projen build",
     "bump": "projen bump",
     "bump:releasable-commits": "projen bump:releasable-commits",
+    "bundle": "projen bundle",
+    "bundle:funcs/sns-publish.lambda": "projen bundle:funcs/sns-publish.lambda",
+    "bundle:funcs/sns-publish.lambda:watch": "projen bundle:funcs/sns-publish.lambda:watch",
     "clobber": "projen clobber",
     "compat": "projen compat",
     "compile": "projen compile",
@@ -35,6 +38,7 @@
     "organization": false
   },
   "devDependencies": {
+    "@aws-sdk/client-sns": "^3.1146.0",
     "@gammarers/projen-projects": "^0.5.0",
     "@stylistic/eslint-plugin": "^2",
     "@types/jest": "^30.0.0",
@@ -44,6 +48,7 @@
     "aws-cdk-lib": "2.272.0",
     "commit-and-tag-version": "^13",
     "constructs": "10.5.1",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-import": "^2.32.0",
@@ -55,6 +60,8 @@
     "jsii-pacmak": "^1.141.0",
     "jsii-rosetta": "6.0.x",
     "projen": "^0.103.27",
+    "quiet-json-parser": "^0.3.2",
+    "strict-env-resolver": "^0.7.2",
     "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
     "typescript": "6.0.x"

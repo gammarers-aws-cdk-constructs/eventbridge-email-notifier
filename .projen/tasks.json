@@ -68,6 +68,52 @@
         }
       ]
     },
+    "bundle": {
+      "name": "bundle",
+      "description": "Prepare assets",
+      "steps": [
+        {
+          "spawn": "bundle:funcs/sns-publish.lambda"
+        }
+      ]
+    },
+    "bundle:funcs/sns-publish.lambda": {
+      "name": "bundle:funcs/sns-publish.lambda",
+      "description": "Create a JavaScript bundle from src/funcs/sns-publish.lambda.ts",
+      "steps": [
+        {
+          "execArgs": [
+            "esbuild",
+            "--bundle",
+            "src/funcs/sns-publish.lambda.ts",
+            "--target=node22",
+            "--platform=node",
+            "--outfile=assets/funcs/sns-publish.lambda/index.js",
+            "--tsconfig=test/tsconfig.json",
+            "--external:@aws-sdk/*"
+          ]
+        }
+      ]
+    },
+    "bundle:funcs/sns-publish.lambda:watch": {
+      "name": "bundle:funcs/sns-publish.lambda:watch",
+      "description": "Continuously update the JavaScript bundle from src/funcs/sns-publish.lambda.ts",
+      "steps": [
+        {
+          "execArgs": [
+            "esbuild",
+            "--bundle",
+            "src/funcs/sns-publish.lambda.ts",
+            "--target=node22",
+            "--platform=node",
+            "--outfile=assets/funcs/sns-publish.lambda/index.js",
+            "--tsconfig=test/tsconfig.json",
+            "--external:@aws-sdk/*",
+            "--watch"
+          ]
+        }
+      ]
+    },
     "clobber": {
       "name": "clobber",
       "description": "hard resets to HEAD of origin and cleans the local repo",
@@ -120,7 +166,7 @@
         {
           "execArgs": [
             "jsii-diff",
-            "npm:sns-email-notifier",
+            "npm:eventbridge-email-notifier",
             "-k",
             "--ignore-file",
             ".compatignore"
@@ -272,7 +318,12 @@
     },
     "pre-compile": {
       "name": "pre-compile",
-      "description": "Prepare the project for compilation"
+      "description": "Prepare the project for compilation",
+      "steps": [
+        {
+          "spawn": "bundle"
+        }
+      ]
     },
     "release": {
       "name": "release",
@@ -306,6 +357,9 @@
       "name": "test",
       "description": "Run tests",
       "steps": [
+        {
+          "spawn": "bundle"
+        },
         {
           "execArgs": [
             "jest",
@@ -364,7 +418,7 @@
             "--peer",
             "--no-deprecated",
             "--dep=dev,prod,peer,optional",
-            "--filter=@types/jest,eslint-import-resolver-typescript,eslint-plugin-import,jest,jsii-diff,jsii-pacmak,projen,ts-jest,ts-node"
+            "--filter=@types/jest,esbuild,eslint-import-resolver-typescript,eslint-plugin-import,jest,jsii-diff,jsii-pacmak,projen,ts-jest,ts-node"
           ]
         },
         {
@@ -374,6 +428,7 @@
           "execArgs": [
             "npm",
             "update",
+            "@aws-sdk/client-sns",
             "@gammarers/projen-projects",
             "@stylistic/eslint-plugin",
             "@types/jest",
@@ -381,6 +436,7 @@
             "@typescript-eslint/eslint-plugin",
             "@typescript-eslint/parser",
             "commit-and-tag-version",
+            "esbuild",
             "eslint-import-resolver-typescript",
             "eslint-plugin-import",
             "eslint",
@@ -392,6 +448,8 @@
             "jsii-rosetta",
             "jsii",
             "projen",
+            "quiet-json-parser",
+            "strict-env-resolver",
             "ts-jest",
             "ts-node",
             "typescript",
