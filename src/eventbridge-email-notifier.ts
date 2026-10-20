@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { Duration, Names, Stack, Token, TokenComparison } from 'aws-cdk-lib';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -11,6 +12,9 @@ import { SUBJECT_ENV, TOPIC_ARN_ENV } from './core/sns-publish-env';
 import { sanitizeSnsSubject } from './core/sns-subject';
 import { SnsPublishFunction } from './funcs/sns-publish-function';
 
+const PUBLISHER_CONSTRUCT_ID_PREFIX = 'EventBridgeEmailNotifier';
+const PUBLISHER_CONSTRUCT_ID_HASH_LENGTH = 16;
+
 /**
  * EventBridge rule target that emails via SNS with a custom subject.
  *
@@ -18,6 +22,9 @@ import { SnsPublishFunction } from './funcs/sns-publish-function';
  * target (it stays "AWS Notification Message"). This target routes through
  * Lambda so Publish can set Subject, and always restricts topic Subscribe
  * protocols to email / email-json.
+ *
+ * On a given rule, publisher Lambdas are keyed by topic ARN + sanitized
+ * subject: identical pairs reuse one function; different pairs never share.
  *
  * Email subscriptions are not created here; manage them in the console or API.
  *
@@ -55,19 +62,29 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
   /**
    * Bind this notifier as an EventBridge rule target (Lambda → SNS Publish).
    *
+   * Publisher construct ids are derived from topic ARN + sanitized subject so
+   * multiple targets on the same rule do not reuse a Lambda with a different
+   * subject or topic. The EventBridge target `id` is accepted for
+   * {@link events.IRuleTarget} compatibility and is not used for the construct id.
+   *
    * @param rule - Rule that will invoke the publisher Lambda
-   * @param id - Optional target id used for construct ids
+   * @param _id - EventBridge target id from the rule (unused for construct ids)
    * @returns Rule target configuration including retry / DLQ settings
    */
-  public bind(rule: events.IRuleRef, id?: string): events.RuleTargetConfig {
+  public bind(rule: events.IRuleRef, _id?: string): events.RuleTargetConfig {
     const scope = resolveBindScope(rule, this.topic);
-    const constructId = id === undefined
-      ? 'EventBridgeEmailNotifier'
-      : `EventBridgeEmailNotifier${id}`;
+    const constructId = publisherConstructId(
+      this.topic.topicArn,
+      this.sanitizedSubject,
+    );
 
     const existing = scope.node.tryFindChild(constructId);
     const handler = existing instanceof lambda.Function
-      ? existing
+      ? reusePublisherFunction(
+        existing,
+        this.topic.topicArn,
+        this.sanitizedSubject,
+      )
       : this.createPublisherFunction(scope, constructId);
 
     addLambdaInvokePermission(rule, handler);
@@ -94,8 +111,72 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
       },
     });
 
+    // Marker keeps unresolved tokens so reuse can compare without resolve().
+    new PublisherConfigMarker(handler, this.topic.topicArn, this.sanitizedSubject);
     this.topic.grantPublish(handler);
     return handler;
+  }
+}
+
+/**
+ * Stable construct id so the same topic+subject pair can share a Lambda.
+ */
+const publisherConstructId = (topicArn: string, subject: string): string => {
+  const digest = createHash('sha256')
+    .update(topicArn)
+    .update('\0')
+    .update(subject)
+    .digest('hex')
+    .slice(0, PUBLISHER_CONSTRUCT_ID_HASH_LENGTH);
+
+  return `${PUBLISHER_CONSTRUCT_ID_PREFIX}${digest}`;
+};
+
+/**
+ * Reuse an existing publisher only when the stored topic ARN and subject match.
+ */
+const reusePublisherFunction = (
+  existing: lambda.Function,
+  topicArn: string,
+  subject: string,
+): lambda.Function => {
+  const marker = existing.node.tryFindChild(PUBLISHER_CONFIG_MARKER_ID);
+  if (!(marker instanceof PublisherConfigMarker)) {
+    throw new Error(
+      `Cannot reuse construct "${existing.node.id}": missing EventBridgeEmailNotifier config marker`,
+    );
+  }
+
+  if (marker.subject !== subject) {
+    throw new Error(
+      `Cannot reuse EventBridgeEmailNotifier Lambda "${existing.node.id}": ` +
+      `subject mismatch (existing=${JSON.stringify(marker.subject)}, requested=${JSON.stringify(subject)})`,
+    );
+  }
+
+  if (Token.compareStrings(marker.topicArn, topicArn) === TokenComparison.DIFFERENT) {
+    throw new Error(
+      `Cannot reuse EventBridgeEmailNotifier Lambda "${existing.node.id}": ` +
+      `topic ARN mismatch (existing=${JSON.stringify(marker.topicArn)}, requested=${JSON.stringify(topicArn)})`,
+    );
+  }
+
+  return existing;
+};
+
+const PUBLISHER_CONFIG_MARKER_ID = 'PublisherConfig';
+
+/**
+ * Stores publisher config on the Lambda so reuse checks work with Tokens.
+ */
+class PublisherConfigMarker extends Construct {
+  public readonly topicArn: string;
+  public readonly subject: string;
+
+  constructor(scope: Construct, topicArn: string, subject: string) {
+    super(scope, PUBLISHER_CONFIG_MARKER_ID);
+    this.topicArn = topicArn;
+    this.subject = subject;
   }
 }
 
