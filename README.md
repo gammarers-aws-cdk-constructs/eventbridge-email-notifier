@@ -15,7 +15,6 @@ EventBridge rule target that sends email through Amazon SNS with a custom subjec
 - Custom SNS email subject (EventBridge cannot set subject when SNS is a direct target)
 - Subject sanitization for SNS Publish limits (control characters removed, max 99 chars)
 - EventBridge target dead-letter queue and retry settings
-- Topic policy that allows only `email` / `email-json` Subscribe protocols
 
 ## How it works
 

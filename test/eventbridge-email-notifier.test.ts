@@ -96,37 +96,6 @@ describe('EventBridgeEmailNotifier', () => {
     }).toThrow(/non-control character/);
   });
 
-  test('always denies non-email Subscribe protocols on the topic', () => {
-    const { stack, topic, rule } = createStackWithRule();
-
-    rule.addTarget(new EventBridgeEmailNotifier(topic, {
-      subject: 'Hello',
-    }));
-
-    // Second target must not duplicate the restriction marker / break synthesis.
-    rule.addTarget(new EventBridgeEmailNotifier(topic, {
-      subject: 'Hello again',
-    }));
-
-    const template = Template.fromStack(stack);
-    template.hasResourceProperties('AWS::SNS::TopicPolicy', {
-      PolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Sid: 'DenySubscribeNonEmailProtocols',
-            Effect: 'Deny',
-            Action: 'sns:Subscribe',
-            Condition: {
-              StringNotEquals: {
-                'sns:Protocol': ['email', 'email-json'],
-              },
-            },
-          }),
-        ]),
-      },
-    });
-  });
-
   test('creates distinct Lambdas for different subjects on the same rule', () => {
     const { stack, topic, rule } = createStackWithRule();
 

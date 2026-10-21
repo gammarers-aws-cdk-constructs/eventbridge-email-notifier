@@ -6,7 +6,6 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import type * as sns from 'aws-cdk-lib/aws-sns';
 import type * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
-import { ensureEmailSubscribeProtocolRestriction } from './core/email-subscribe-topic-policy';
 import type { EventBridgeEmailNotifierProps } from './core/eventbridge-email-notifier-props';
 import { SUBJECT_ENV, TOPIC_ARN_ENV } from './core/sns-publish-env';
 import { sanitizeSnsSubject } from './core/sns-subject';
@@ -20,13 +19,13 @@ const PUBLISHER_CONSTRUCT_ID_HASH_LENGTH = 16;
  *
  * EventBridge cannot customize the SNS email subject when SNS is the direct
  * target (it stays "AWS Notification Message"). This target routes through
- * Lambda so Publish can set Subject, and always restricts topic Subscribe
- * protocols to email / email-json.
+ * Lambda so Publish can set Subject.
  *
  * On a given rule, publisher Lambdas are keyed by topic ARN + sanitized
  * subject: identical pairs reuse one function; different pairs never share.
  *
  * Email subscriptions are not created here; manage them in the console or API.
+ * This target does not change the topic resource policy.
  *
  * @example
  * rule.addTarget(new EventBridgeEmailNotifier(topic, {
@@ -54,9 +53,6 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
       );
     }
     this.sanitizedSubject = sanitized;
-
-    // Restrict Subscribe protocols as soon as the target is constructed.
-    ensureEmailSubscribeProtocolRestriction(topic);
   }
 
   /**
