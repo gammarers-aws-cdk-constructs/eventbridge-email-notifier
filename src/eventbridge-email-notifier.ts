@@ -28,7 +28,8 @@ export interface EventBridgeEmailNotifierProps {
    * Email subject used when publishing to SNS.
    *
    * Control characters (including newlines) are removed and the value is
-   * truncated to 99 characters to satisfy SNS Publish constraints.
+   * truncated to {@link SNS_SUBJECT_MAX_LENGTH} characters to satisfy SNS
+   * Publish constraints.
    */
   readonly subject: string;
 
@@ -102,6 +103,7 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
   /**
    * @param topic - SNS topic used for email delivery
    * @param props - Subject, message, and EventBridge retry / DLQ options
+   * @throws Error when the subject is empty after sanitization
    */
   constructor(topic: sns.ITopic, props: EventBridgeEmailNotifierProps) {
     this.topic = topic;
