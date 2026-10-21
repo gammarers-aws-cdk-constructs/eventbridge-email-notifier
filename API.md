@@ -5,7 +5,7 @@
 
 ### EventBridgeEmailNotifierProps <a name="EventBridgeEmailNotifierProps" id="eventbridge-email-notifier.EventBridgeEmailNotifierProps"></a>
 
-Properties for {@link EventBridgeEmailNotifier }.
+Properties for {@link EventBridgeEmailNotifier}.
 
 #### Initializer <a name="Initializer" id="eventbridge-email-notifier.EventBridgeEmailNotifierProps.Initializer"></a>
 
@@ -38,7 +38,8 @@ public readonly subject: string;
 Email subject used when publishing to SNS.
 
 Control characters (including newlines) are removed and the value is
-truncated to 99 characters to satisfy SNS Publish constraints.
+truncated to {@link SNS_SUBJECT_MAX_LENGTH} characters to satisfy SNS
+Publish constraints.
 
 ---
 
@@ -104,10 +105,13 @@ EventBridge rule target that emails via SNS with a custom subject.
 
 EventBridge cannot customize the SNS email subject when SNS is the direct
 target (it stays "AWS Notification Message"). This target routes through
-Lambda so Publish can set Subject, and always restricts topic Subscribe
-protocols to email / email-json.
+Lambda so Publish can set Subject.
+
+On a given rule, publisher Lambdas are keyed by topic ARN + sanitized
+subject: identical pairs reuse one function; different pairs never share.
 
 Email subscriptions are not created here; manage them in the console or API.
+This target does not change the topic resource policy.
 
 *Example*
 
@@ -161,10 +165,15 @@ Subject, message, and EventBridge retry / DLQ options.
 ##### `bind` <a name="bind" id="eventbridge-email-notifier.EventBridgeEmailNotifier.bind"></a>
 
 ```typescript
-public bind(rule: IRuleRef, id?: string): RuleTargetConfig
+public bind(rule: IRuleRef, _id?: string): RuleTargetConfig
 ```
 
 Bind this notifier as an EventBridge rule target (Lambda → SNS Publish).
+
+Publisher construct ids are derived from topic ARN + sanitized subject so
+multiple targets on the same rule do not reuse a Lambda with a different
+subject or topic. The EventBridge target `id` is accepted for
+{@link events.IRuleTarget} compatibility and is not used for the construct id.
 
 ###### `rule`<sup>Required</sup> <a name="rule" id="eventbridge-email-notifier.EventBridgeEmailNotifier.bind.parameter.rule"></a>
 
@@ -174,11 +183,11 @@ Rule that will invoke the publisher Lambda.
 
 ---
 
-###### `id`<sup>Optional</sup> <a name="id" id="eventbridge-email-notifier.EventBridgeEmailNotifier.bind.parameter.id"></a>
+###### `_id`<sup>Optional</sup> <a name="_id" id="eventbridge-email-notifier.EventBridgeEmailNotifier.bind.parameter._id"></a>
 
 - *Type:* string
 
-Optional target id used for construct ids.
+EventBridge target id from the rule (unused for construct ids).
 
 ---
 
