@@ -30,7 +30,7 @@ describe('EventBridgeEmailNotifier', () => {
     const template = Template.fromStack(stack);
 
     template.hasResourceProperties('AWS::Lambda::Function', {
-      Runtime: 'nodejs22.x',
+      Runtime: 'nodejs24.x',
       Handler: 'index.handler',
       Code: {
         ZipFile: Match.absent(),

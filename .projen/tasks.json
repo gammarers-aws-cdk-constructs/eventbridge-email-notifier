@@ -86,12 +86,13 @@
             "esbuild",
             "--bundle",
             "src/funcs/sns-publish.lambda.ts",
-            "--target=node22",
+            "--target=node24",
             "--platform=node",
             "--outfile=assets/funcs/sns-publish.lambda/index.js",
             "--packages=bundle",
             "--tsconfig=test/tsconfig.json",
-            "--external:@aws-sdk/*"
+            "--external:@aws-sdk/*",
+            "--sourcemap"
           ]
         }
       ]
@@ -105,12 +106,13 @@
             "esbuild",
             "--bundle",
             "src/funcs/sns-publish.lambda.ts",
-            "--target=node22",
+            "--target=node24",
             "--platform=node",
             "--outfile=assets/funcs/sns-publish.lambda/index.js",
             "--packages=bundle",
             "--tsconfig=test/tsconfig.json",
             "--external:@aws-sdk/*",
+            "--sourcemap",
             "--watch"
           ]
         }
