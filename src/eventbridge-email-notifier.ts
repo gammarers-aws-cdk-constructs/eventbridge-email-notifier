@@ -6,13 +6,74 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import type * as sns from 'aws-cdk-lib/aws-sns';
 import type * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
-import type { EventBridgeEmailNotifierProps } from './core/eventbridge-email-notifier-props';
-import { SUBJECT_ENV, TOPIC_ARN_ENV } from './core/sns-publish-env';
-import { sanitizeSnsSubject } from './core/sns-subject';
 import { SnsPublishFunction } from './funcs/sns-publish-function';
+import {
+  SNS_SUBJECT_MAX_LENGTH,
+  SUBJECT_ENV,
+  TOPIC_ARN_ENV,
+} from './settings/consts';
 
 const PUBLISHER_CONSTRUCT_ID_PREFIX = 'EventBridgeEmailNotifier';
 const PUBLISHER_CONSTRUCT_ID_HASH_LENGTH = 16;
+const PUBLISHER_CONFIG_MARKER_ID = 'PublisherConfig';
+
+/** Control characters forbidden in SNS Subject (line breaks and other Cc). */
+const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F-\u009F]/g;
+
+/**
+ * Properties for {@link EventBridgeEmailNotifier}.
+ */
+export interface EventBridgeEmailNotifierProps {
+  /**
+   * Email subject used when publishing to SNS.
+   *
+   * Control characters (including newlines) are removed and the value is
+   * truncated to 99 characters to satisfy SNS Publish constraints.
+   */
+  readonly subject: string;
+
+  /**
+   * Message body sent to the Lambda target (then published to SNS).
+   *
+   * @default the entire EventBridge event (JSON-serialized)
+   */
+  readonly message?: events.RuleTargetInput;
+
+  /**
+   * SQS queue used as the EventBridge target dead-letter queue.
+   *
+   * @default - no dead-letter queue
+   */
+  readonly deadLetterQueue?: sqs.IQueue;
+
+  /**
+   * Maximum age of an event for EventBridge retries to this target.
+   *
+   * @default Duration.hours(24)
+   */
+  readonly maxEventAge?: Duration;
+
+  /**
+   * Maximum number of EventBridge retry attempts for this target.
+   *
+   * @default 185
+   */
+  readonly retryAttempts?: number;
+}
+
+/**
+ * Sanitize a string for use as an SNS email Subject.
+ *
+ * Removes control characters (including newlines) and truncates to
+ * {@link SNS_SUBJECT_MAX_LENGTH} characters.
+ *
+ * @param subject - Candidate subject text
+ * @returns Sanitized subject safe for SNS Publish
+ */
+export const sanitizeSnsSubject = (subject: string): string => {
+  const withoutControls = subject.replace(CONTROL_CHARACTER_PATTERN, '');
+  return withoutControls.slice(0, SNS_SUBJECT_MAX_LENGTH);
+};
 
 /**
  * EventBridge rule target that emails via SNS with a custom subject.
@@ -159,8 +220,6 @@ const reusePublisherFunction = (
 
   return existing;
 };
-
-const PUBLISHER_CONFIG_MARKER_ID = 'PublisherConfig';
 
 /**
  * Stores publisher config on the Lambda so reuse checks work with Tokens.

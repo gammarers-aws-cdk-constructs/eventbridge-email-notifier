@@ -4,7 +4,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { EventBridgeEmailNotifier } from '../src';
-import { SUBJECT_ENV, TOPIC_ARN_ENV } from '../src/core/sns-publish-env';
+import { SUBJECT_ENV, TOPIC_ARN_ENV } from '../src/settings/consts';
 
 const createStackWithRule = () => {
   const app = new App();

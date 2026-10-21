@@ -1,9 +1,11 @@
 import { PublishCommand, SNSClient } from '@aws-sdk/client-sns';
 import { quietStringify } from 'quiet-json-parser';
 import { StrictEnvResolver, StrictEnvType } from 'strict-env-resolver';
-import { SUBJECT_ENV, TOPIC_ARN_ENV } from '../core/sns-publish-env';
+import { SUBJECT_ENV, TOPIC_ARN_ENV } from '../settings/consts';
 
-const sns = new SNSClient({});
+const sns = new SNSClient({
+  maxAttempts: 3,
+});
 
 /** SNS body used when the payload cannot be serialized. */
 const SNS_MESSAGE_FALLBACK = 'null';
