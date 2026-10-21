@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { Duration, Names, Stack, Token, TokenComparison } from 'aws-cdk-lib';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -5,21 +6,88 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import type * as sns from 'aws-cdk-lib/aws-sns';
 import type * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
-import { ensureEmailSubscribeProtocolRestriction } from './core/email-subscribe-topic-policy';
-import type { EventBridgeEmailNotifierProps } from './core/eventbridge-email-notifier-props';
-import { SUBJECT_ENV, TOPIC_ARN_ENV } from './core/sns-publish-env';
-import { sanitizeSnsSubject } from './core/sns-subject';
 import { SnsPublishFunction } from './funcs/sns-publish-function';
+import {
+  SNS_SUBJECT_MAX_LENGTH,
+  SUBJECT_ENV,
+  TOPIC_ARN_ENV,
+} from './settings/consts';
+
+const PUBLISHER_CONSTRUCT_ID_PREFIX = 'EventBridgeEmailNotifier';
+const PUBLISHER_CONSTRUCT_ID_HASH_LENGTH = 16;
+const PUBLISHER_CONFIG_MARKER_ID = 'PublisherConfig';
+
+/** Control characters forbidden in SNS Subject (line breaks and other Cc). */
+const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F-\u009F]/g;
+
+/**
+ * Properties for {@link EventBridgeEmailNotifier}.
+ */
+export interface EventBridgeEmailNotifierProps {
+  /**
+   * Email subject used when publishing to SNS.
+   *
+   * Control characters (including newlines) are removed and the value is
+   * truncated to {@link SNS_SUBJECT_MAX_LENGTH} characters to satisfy SNS
+   * Publish constraints.
+   */
+  readonly subject: string;
+
+  /**
+   * Message body sent to the Lambda target (then published to SNS).
+   *
+   * @default the entire EventBridge event (JSON-serialized)
+   */
+  readonly message?: events.RuleTargetInput;
+
+  /**
+   * SQS queue used as the EventBridge target dead-letter queue.
+   *
+   * @default - no dead-letter queue
+   */
+  readonly deadLetterQueue?: sqs.IQueue;
+
+  /**
+   * Maximum age of an event for EventBridge retries to this target.
+   *
+   * @default Duration.hours(24)
+   */
+  readonly maxEventAge?: Duration;
+
+  /**
+   * Maximum number of EventBridge retry attempts for this target.
+   *
+   * @default 185
+   */
+  readonly retryAttempts?: number;
+}
+
+/**
+ * Sanitize a string for use as an SNS email Subject.
+ *
+ * Removes control characters (including newlines) and truncates to
+ * {@link SNS_SUBJECT_MAX_LENGTH} characters.
+ *
+ * @param subject - Candidate subject text
+ * @returns Sanitized subject safe for SNS Publish
+ */
+export const sanitizeSnsSubject = (subject: string): string => {
+  const withoutControls = subject.replace(CONTROL_CHARACTER_PATTERN, '');
+  return withoutControls.slice(0, SNS_SUBJECT_MAX_LENGTH);
+};
 
 /**
  * EventBridge rule target that emails via SNS with a custom subject.
  *
  * EventBridge cannot customize the SNS email subject when SNS is the direct
  * target (it stays "AWS Notification Message"). This target routes through
- * Lambda so Publish can set Subject, and always restricts topic Subscribe
- * protocols to email / email-json.
+ * Lambda so Publish can set Subject.
+ *
+ * On a given rule, publisher Lambdas are keyed by topic ARN + sanitized
+ * subject: identical pairs reuse one function; different pairs never share.
  *
  * Email subscriptions are not created here; manage them in the console or API.
+ * This target does not change the topic resource policy.
  *
  * @example
  * rule.addTarget(new EventBridgeEmailNotifier(topic, {
@@ -35,6 +103,7 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
   /**
    * @param topic - SNS topic used for email delivery
    * @param props - Subject, message, and EventBridge retry / DLQ options
+   * @throws Error when the subject is empty after sanitization
    */
   constructor(topic: sns.ITopic, props: EventBridgeEmailNotifierProps) {
     this.topic = topic;
@@ -47,27 +116,34 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
       );
     }
     this.sanitizedSubject = sanitized;
-
-    // Restrict Subscribe protocols as soon as the target is constructed.
-    ensureEmailSubscribeProtocolRestriction(topic);
   }
 
   /**
    * Bind this notifier as an EventBridge rule target (Lambda → SNS Publish).
    *
+   * Publisher construct ids are derived from topic ARN + sanitized subject so
+   * multiple targets on the same rule do not reuse a Lambda with a different
+   * subject or topic. The EventBridge target `id` is accepted for
+   * {@link events.IRuleTarget} compatibility and is not used for the construct id.
+   *
    * @param rule - Rule that will invoke the publisher Lambda
-   * @param id - Optional target id used for construct ids
+   * @param _id - EventBridge target id from the rule (unused for construct ids)
    * @returns Rule target configuration including retry / DLQ settings
    */
-  public bind(rule: events.IRuleRef, id?: string): events.RuleTargetConfig {
+  public bind(rule: events.IRuleRef, _id?: string): events.RuleTargetConfig {
     const scope = resolveBindScope(rule, this.topic);
-    const constructId = id === undefined
-      ? 'EventBridgeEmailNotifier'
-      : `EventBridgeEmailNotifier${id}`;
+    const constructId = publisherConstructId(
+      this.topic.topicArn,
+      this.sanitizedSubject,
+    );
 
     const existing = scope.node.tryFindChild(constructId);
     const handler = existing instanceof lambda.Function
-      ? existing
+      ? reusePublisherFunction(
+        existing,
+        this.topic.topicArn,
+        this.sanitizedSubject,
+      )
       : this.createPublisherFunction(scope, constructId);
 
     addLambdaInvokePermission(rule, handler);
@@ -94,8 +170,70 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
       },
     });
 
+    // Marker keeps unresolved tokens so reuse can compare without resolve().
+    new PublisherConfigMarker(handler, this.topic.topicArn, this.sanitizedSubject);
     this.topic.grantPublish(handler);
     return handler;
+  }
+}
+
+/**
+ * Stable construct id so the same topic+subject pair can share a Lambda.
+ */
+const publisherConstructId = (topicArn: string, subject: string): string => {
+  const digest = createHash('sha256')
+    .update(topicArn)
+    .update('\0')
+    .update(subject)
+    .digest('hex')
+    .slice(0, PUBLISHER_CONSTRUCT_ID_HASH_LENGTH);
+
+  return `${PUBLISHER_CONSTRUCT_ID_PREFIX}${digest}`;
+};
+
+/**
+ * Reuse an existing publisher only when the stored topic ARN and subject match.
+ */
+const reusePublisherFunction = (
+  existing: lambda.Function,
+  topicArn: string,
+  subject: string,
+): lambda.Function => {
+  const marker = existing.node.tryFindChild(PUBLISHER_CONFIG_MARKER_ID);
+  if (!(marker instanceof PublisherConfigMarker)) {
+    throw new Error(
+      `Cannot reuse construct "${existing.node.id}": missing EventBridgeEmailNotifier config marker`,
+    );
+  }
+
+  if (marker.subject !== subject) {
+    throw new Error(
+      `Cannot reuse EventBridgeEmailNotifier Lambda "${existing.node.id}": ` +
+      `subject mismatch (existing=${JSON.stringify(marker.subject)}, requested=${JSON.stringify(subject)})`,
+    );
+  }
+
+  if (Token.compareStrings(marker.topicArn, topicArn) === TokenComparison.DIFFERENT) {
+    throw new Error(
+      `Cannot reuse EventBridgeEmailNotifier Lambda "${existing.node.id}": ` +
+      `topic ARN mismatch (existing=${JSON.stringify(marker.topicArn)}, requested=${JSON.stringify(topicArn)})`,
+    );
+  }
+
+  return existing;
+};
+
+/**
+ * Stores publisher config on the Lambda so reuse checks work with Tokens.
+ */
+class PublisherConfigMarker extends Construct {
+  public readonly topicArn: string;
+  public readonly subject: string;
+
+  constructor(scope: Construct, topicArn: string, subject: string) {
+    super(scope, PUBLISHER_CONFIG_MARKER_ID);
+    this.topicArn = topicArn;
+    this.subject = subject;
   }
 }
 

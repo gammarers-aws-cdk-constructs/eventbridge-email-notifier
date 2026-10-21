@@ -1,7 +1,5 @@
-import {
-  SNS_SUBJECT_MAX_LENGTH,
-  sanitizeSnsSubject,
-} from '../src/core/sns-subject';
+import { sanitizeSnsSubject } from '../src/eventbridge-email-notifier';
+import { SNS_SUBJECT_MAX_LENGTH } from '../src/settings/consts';
 
 describe('sanitizeSnsSubject', () => {
   it.each([

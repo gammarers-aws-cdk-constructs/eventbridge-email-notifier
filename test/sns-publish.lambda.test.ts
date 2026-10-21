@@ -1,6 +1,6 @@
 import { StrictEnvValidationError } from 'strict-env-resolver';
-import { SUBJECT_ENV, TOPIC_ARN_ENV } from '../src/core/sns-publish-env';
 import { handler, toSnsMessage } from '../src/funcs/sns-publish.lambda';
+import { SUBJECT_ENV, TOPIC_ARN_ENV } from '../src/settings/consts';
 
 const restoreEnv = (name: string, value: string | undefined): void => {
   if (value === undefined) {

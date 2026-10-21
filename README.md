@@ -15,11 +15,10 @@ EventBridge rule target that sends email through Amazon SNS with a custom subjec
 - Custom SNS email subject (EventBridge cannot set subject when SNS is a direct target)
 - Subject sanitization for SNS Publish limits (control characters removed, max 99 chars)
 - EventBridge target dead-letter queue and retry settings
-- Topic policy that allows only `email` / `email-json` Subscribe protocols
 
 ## How it works
 
-EventBridge invokes a small Lambda publisher. The Lambda calls SNS `Publish` with your subject and message. Email subscriptions are not created by this library; add them in the console or API when addresses change.
+EventBridge invokes a small Lambda publisher. The Lambda calls SNS `Publish` with your subject and message. On the same rule, targets that share a topic and subject reuse one publisher Lambda; different subjects or topics get separate functions. Email subscriptions are not created by this library, and the topic resource policy is not modified—add subscriptions in the console or API when addresses change.
 
 ## Installation
 
