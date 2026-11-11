@@ -3,6 +3,7 @@ import { Match, Template } from 'aws-cdk-lib/assertions';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
+import { Construct } from 'constructs';
 import { EventBridgeEmailNotifier } from '../src';
 import { PUBLISHER_TIMEOUT_SECONDS } from '../src/settings/consts';
 
@@ -20,6 +21,34 @@ const createStackWithRule = () => {
   });
   return { stack, topic, rule };
 };
+
+class TargetInput extends events.RuleTargetInput {
+  public constructor(private readonly properties: events.RuleTargetInputProperties) {
+    super();
+  }
+
+  public bind(): events.RuleTargetInputProperties {
+    return this.properties;
+  }
+}
+
+class TopicPathInput extends events.RuleTargetInput {
+  public constructor(
+    private readonly topic: sns.ITopic,
+    private readonly path: string,
+  ) {
+    super();
+  }
+
+  public bind(rule: events.IRuleRef): events.RuleTargetInputProperties {
+    const stack = Construct.isConstruct(rule) ? Stack.of(rule) : Stack.of(this.topic);
+
+    return {
+      inputTemplate: stack.toJsonString(this.topic.topicArn),
+      inputPathsMap: { detail: this.path },
+    };
+  }
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -526,6 +555,121 @@ describe('EventBridgeEmailNotifier', () => {
         ]),
       },
     });
+  });
+
+  test('rejects an input that is not text, a path, or an object template', () => {
+    const { topic, rule } = createStackWithRule();
+
+    const target = new EventBridgeEmailNotifier(topic, {
+      subject: new TargetInput({}),
+    }).bind(rule);
+
+    expect(() => target.input?.bind(rule)).toThrow(/text, an event path, or an object input/);
+  });
+
+  test('passes a constant input template through without path keys', () => {
+    const { stack, topic, rule } = createStackWithRule();
+
+    rule.addTarget(new EventBridgeEmailNotifier(topic, {
+      subject: 'Static subject',
+      message: new TargetInput({ inputTemplate: '{"note":"fixed"}' }),
+    }));
+
+    expect(targetPayloadText(Template.fromStack(stack))).toContain('fixed');
+  });
+
+  test('keeps a subject fragment that is not JSON', () => {
+    const { stack, topic, rule } = createStackWithRule();
+
+    rule.addTarget(new EventBridgeEmailNotifier(topic, {
+      subject: new TargetInput({ input: 'not-json' }),
+    }));
+
+    expect(targetPayloadText(Template.fromStack(stack))).toContain('not-json');
+  });
+
+  test('rejects subject and message that reuse a path key for different paths', () => {
+    const { topic, rule } = createStackWithRule();
+
+    const target = new EventBridgeEmailNotifier(topic, {
+      subject: new TopicPathInput(topic, '$.detail.state'),
+      message: new TopicPathInput(topic, '$.detail.pipeline'),
+    }).bind(rule);
+
+    expect(() => target.input?.bind(rule)).toThrow(/input path key "detail"/);
+  });
+
+  test('allows subject and message to reuse a path key for the same path', () => {
+    const { stack, topic, rule } = createStackWithRule();
+
+    rule.addTarget(new EventBridgeEmailNotifier(topic, {
+      subject: new TopicPathInput(topic, '$.detail.state'),
+      message: new TopicPathInput(topic, '$.detail.state'),
+    }));
+
+    expect(targetPayloadText(Template.fromStack(stack))).toContain('$.detail.state');
+  });
+
+  test('rejects a dead-letter queue in another region', () => {
+    const app = new App();
+    const stack = new Stack(app, 'Home', {
+      env: { account: '111111111111', region: 'us-east-1' },
+    });
+    const away = new Stack(app, 'Away', {
+      env: { account: '111111111111', region: 'eu-west-1' },
+    });
+    const rule = new events.Rule(stack, 'Rule', {
+      eventPattern: { source: ['aws.codepipeline'] },
+    });
+
+    expect(() => {
+      rule.addTarget(new EventBridgeEmailNotifier(new sns.Topic(stack, 'Topic'), {
+        subject: 'Region mismatch',
+        deadLetterQueue: new sqs.Queue(away, 'Dlq'),
+      }));
+    }).toThrow(/same region/);
+  });
+
+  test('does not grant the dead-letter queue when the account differs', () => {
+    const app = new App();
+    const stack = new Stack(app, 'Home', {
+      env: { account: '111111111111', region: 'us-east-1' },
+    });
+    const away = new Stack(app, 'Away', {
+      env: { account: '222222222222', region: 'us-east-1' },
+    });
+    const rule = new events.Rule(stack, 'Rule', {
+      eventPattern: { source: ['aws.codepipeline'] },
+    });
+
+    rule.addTarget(new EventBridgeEmailNotifier(new sns.Topic(stack, 'Topic'), {
+      subject: 'Other account',
+      deadLetterQueue: new sqs.Queue(away, 'Dlq', { queueName: 'cross-account-dlq' }),
+    }));
+
+    Template.fromStack(stack).hasResourceProperties('AWS::Events::Rule', {
+      Targets: Match.arrayWith([
+        Match.objectLike({
+          DeadLetterConfig: { Arn: Match.anyValue() },
+        }),
+      ]),
+    });
+    Template.fromStack(away).resourceCountIs('AWS::SQS::QueuePolicy', 0);
+  });
+
+  test('places the publisher in the topic stack when the rule is not a construct', () => {
+    const { stack, topic, rule } = createStackWithRule();
+    const ruleRef = {
+      node: rule.node,
+      env: rule.env,
+      ruleRef: {
+        ruleArn: 'arn:aws:events:us-east-1:123456789012:rule/example',
+      },
+    } as events.IRuleRef;
+
+    new EventBridgeEmailNotifier(topic, { subject: 'Plain subject' }).bind(ruleRef);
+
+    expect(Object.keys(Template.fromStack(stack).findResources('AWS::Lambda::Function'))).toHaveLength(1);
   });
 });
 
