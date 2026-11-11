@@ -10,6 +10,7 @@ import {
   PUBLISH_MESSAGE_FIELD,
   PUBLISH_SUBJECT_FIELD,
   PUBLISH_TOPIC_ARN_FIELD,
+  PUBLISHER_TIMEOUT_SECONDS,
   SNS_SUBJECT_MAX_LENGTH,
 } from './settings/consts';
 
@@ -513,7 +514,7 @@ const publisherFunction = (stack: Stack): lambda.Function => {
 
   return new SnsPublishFunction(stack, PUBLISHER_FUNCTION_ID, {
     description: 'Publish EventBridge events to SNS with a custom email subject',
-    timeout: Duration.seconds(30),
+    timeout: Duration.seconds(PUBLISHER_TIMEOUT_SECONDS),
   });
 };
 

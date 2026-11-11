@@ -4,6 +4,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { EventBridgeEmailNotifier } from '../src';
+import { PUBLISHER_TIMEOUT_SECONDS } from '../src/settings/consts';
 
 const REMOVED_SUBJECT_ENV = 'SUBJECT';
 const REMOVED_TOPIC_ARN_ENV = 'TOPIC_ARN';
@@ -130,6 +131,7 @@ const expectPublisherWiring = (template: Template, lambdaCount: number): void =>
   template.hasResourceProperties('AWS::Lambda::Function', {
     Runtime: 'nodejs24.x',
     Handler: 'index.handler',
+    Timeout: PUBLISHER_TIMEOUT_SECONDS,
     Code: {
       ZipFile: Match.absent(),
     },

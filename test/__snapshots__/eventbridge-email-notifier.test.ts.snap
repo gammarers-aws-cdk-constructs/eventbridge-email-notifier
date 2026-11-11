@@ -64,7 +64,7 @@ exports[`representative synthesized templates dead-letter queue and retry: dead-
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "faaa7cec5fd9ad9896e70cd93ed8daacd23d5eb735c64aca685468726d834a68.zip",
+          "S3Key": "e5e10415352ef8ce955374ff581a6b1e20e9a792c8c48d5d64102459369edf59.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -80,7 +80,7 @@ exports[`representative synthesized templates dead-letter queue and retry: dead-
           ],
         },
         "Runtime": "nodejs24.x",
-        "Timeout": 30,
+        "Timeout": 120,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -259,7 +259,7 @@ exports[`representative synthesized templates distinct subjects: distinct subjec
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "faaa7cec5fd9ad9896e70cd93ed8daacd23d5eb735c64aca685468726d834a68.zip",
+          "S3Key": "e5e10415352ef8ce955374ff581a6b1e20e9a792c8c48d5d64102459369edf59.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -275,7 +275,7 @@ exports[`representative synthesized templates distinct subjects: distinct subjec
           ],
         },
         "Runtime": "nodejs24.x",
-        "Timeout": 30,
+        "Timeout": 120,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -461,7 +461,7 @@ exports[`representative synthesized templates event path subject: event path sub
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "faaa7cec5fd9ad9896e70cd93ed8daacd23d5eb735c64aca685468726d834a68.zip",
+          "S3Key": "e5e10415352ef8ce955374ff581a6b1e20e9a792c8c48d5d64102459369edf59.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -477,7 +477,7 @@ exports[`representative synthesized templates event path subject: event path sub
           ],
         },
         "Runtime": "nodejs24.x",
-        "Timeout": 30,
+        "Timeout": 120,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -647,7 +647,7 @@ exports[`representative synthesized templates reused subject: reused subject 1`]
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "faaa7cec5fd9ad9896e70cd93ed8daacd23d5eb735c64aca685468726d834a68.zip",
+          "S3Key": "e5e10415352ef8ce955374ff581a6b1e20e9a792c8c48d5d64102459369edf59.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -663,7 +663,7 @@ exports[`representative synthesized templates reused subject: reused subject 1`]
           ],
         },
         "Runtime": "nodejs24.x",
-        "Timeout": 30,
+        "Timeout": 120,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -849,7 +849,7 @@ exports[`representative synthesized templates static subject: static subject 1`]
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "faaa7cec5fd9ad9896e70cd93ed8daacd23d5eb735c64aca685468726d834a68.zip",
+          "S3Key": "e5e10415352ef8ce955374ff581a6b1e20e9a792c8c48d5d64102459369edf59.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -865,7 +865,7 @@ exports[`representative synthesized templates static subject: static subject 1`]
           ],
         },
         "Runtime": "nodejs24.x",
-        "Timeout": 30,
+        "Timeout": 120,
       },
       "Type": "AWS::Lambda::Function",
     },

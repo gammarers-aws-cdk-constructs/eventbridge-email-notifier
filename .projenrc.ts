@@ -10,6 +10,7 @@ const project = new ProjenCdkConstructLibrary({
   devDeps: [
     '@gammarers/projen-projects@^0.5.10',
     '@aws-sdk/client-sns@^3.1146.0',
+    '@smithy/node-http-handler@^4.14.2',
     'aws-sdk-client-mock@^4.1.0',
     'aws-sdk-client-mock-jest@^4.1.0',
     'quiet-json-parser@^0.3.2',

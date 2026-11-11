@@ -429,6 +429,7 @@
             "update",
             "@aws-sdk/client-sns",
             "@gammarers/projen-projects",
+            "@smithy/node-http-handler",
             "@stylistic/eslint-plugin",
             "@types/jest",
             "@types/node",

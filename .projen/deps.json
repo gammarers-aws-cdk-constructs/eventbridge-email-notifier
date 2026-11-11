@@ -11,6 +11,11 @@
       "type": "build"
     },
     {
+      "name": "@smithy/node-http-handler",
+      "version": "^4.14.2",
+      "type": "build"
+    },
+    {
       "name": "@stylistic/eslint-plugin",
       "version": "^2",
       "type": "build"
