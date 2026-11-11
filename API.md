@@ -19,10 +19,10 @@ const eventBridgeEmailNotifierProps: EventBridgeEmailNotifierProps = { ... }
 
 | **Name** | **Type** | **Description** |
 | --- | --- | --- |
-| <code><a href="#eventbridge-email-notifier.EventBridgeEmailNotifierProps.property.subject">subject</a></code> | <code>string</code> | Email subject used when publishing to SNS. |
+| <code><a href="#eventbridge-email-notifier.EventBridgeEmailNotifierProps.property.subject">subject</a></code> | <code>string \| aws-cdk-lib.aws_events.RuleTargetInput</code> | Email subject used when publishing to SNS. |
 | <code><a href="#eventbridge-email-notifier.EventBridgeEmailNotifierProps.property.deadLetterQueue">deadLetterQueue</a></code> | <code>aws-cdk-lib.aws_sqs.IQueue</code> | SQS queue used as the EventBridge target dead-letter queue. |
 | <code><a href="#eventbridge-email-notifier.EventBridgeEmailNotifierProps.property.maxEventAge">maxEventAge</a></code> | <code>aws-cdk-lib.Duration</code> | Maximum age of an event for EventBridge retries to this target. |
-| <code><a href="#eventbridge-email-notifier.EventBridgeEmailNotifierProps.property.message">message</a></code> | <code>aws-cdk-lib.aws_events.RuleTargetInput</code> | Message body sent to the Lambda target (then published to SNS). |
+| <code><a href="#eventbridge-email-notifier.EventBridgeEmailNotifierProps.property.message">message</a></code> | <code>aws-cdk-lib.aws_events.RuleTargetInput</code> | Message body published to SNS. |
 | <code><a href="#eventbridge-email-notifier.EventBridgeEmailNotifierProps.property.retryAttempts">retryAttempts</a></code> | <code>number</code> | Maximum number of EventBridge retry attempts for this target. |
 
 ---
@@ -30,16 +30,22 @@ const eventBridgeEmailNotifierProps: EventBridgeEmailNotifierProps = { ... }
 ##### `subject`<sup>Required</sup> <a name="subject" id="eventbridge-email-notifier.EventBridgeEmailNotifierProps.property.subject"></a>
 
 ```typescript
-public readonly subject: string;
+public readonly subject: string | RuleTargetInput;
 ```
 
-- *Type:* string
+- *Type:* string | aws-cdk-lib.aws_events.RuleTargetInput
 
 Email subject used when publishing to SNS.
 
-Control characters (including newlines) are removed and the value is
-truncated to {@link SNS_SUBJECT_MAX_LENGTH} characters to satisfy SNS
-Publish constraints.
+A string is sanitized when the stack is synthesized: control characters
+(including newlines) are removed and the value is truncated to
+{@link SNS_SUBJECT_MAX_LENGTH} characters.
+
+An event value is sent through the input transformer and sanitized when
+the publisher Lambda runs. Use `events.EventField.fromPath('$.detail.state')`
+or `events.RuleTargetInput.fromEventPath('$.detail.state')`.
+`events.RuleTargetInput.fromText` sets a static subject.
+The value that reaches the Lambda must be a string. An object fails that invocation.
 
 ---
 
@@ -53,6 +59,10 @@ public readonly deadLetterQueue: IQueue;
 - *Default:* no dead-letter queue
 
 SQS queue used as the EventBridge target dead-letter queue.
+
+The queue must be in the same region as the rule. In the same account,
+EventBridge is granted `sqs:SendMessage` on that queue. A queue in another
+account needs that permission on the queue policy.
 
 ---
 
@@ -76,9 +86,12 @@ public readonly message: RuleTargetInput;
 ```
 
 - *Type:* aws-cdk-lib.aws_events.RuleTargetInput
-- *Default:* the entire EventBridge event (JSON-serialized)
+- *Default:* the entire EventBridge event
 
-Message body sent to the Lambda target (then published to SNS).
+Message body published to SNS.
+
+The Lambda receives this value as the `message` field and publishes it.
+Strings are published as-is. Other values are JSON-serialized.
 
 ---
 
@@ -107,8 +120,12 @@ EventBridge cannot customize the SNS email subject when SNS is the direct
 target (it stays "AWS Notification Message"). This target routes through
 Lambda so Publish can set Subject.
 
-On a given rule, publisher Lambdas are keyed by topic ARN + sanitized
-subject: identical pairs reuse one function; different pairs never share.
+The Lambda event is `{ topicArn, subject, message }` built with an input
+transformer. Static subjects are checked at synthesis. Subjects taken from
+the event are checked on each invocation.
+
+One publisher Lambda is created per stack. Every target in that stack
+invokes it, and the target input carries that target's topic and subject.
 
 Email subscriptions are not created here; manage them in the console or API.
 This target does not change the topic resource policy.
@@ -170,10 +187,10 @@ public bind(rule: IRuleRef, _id?: string): RuleTargetConfig
 
 Bind this notifier as an EventBridge rule target (Lambda → SNS Publish).
 
-Publisher construct ids are derived from topic ARN + sanitized subject so
-multiple targets on the same rule do not reuse a Lambda with a different
-subject or topic. The EventBridge target `id` is accepted for
-{@link events.IRuleTarget} compatibility and is not used for the construct id.
+The target input is an object with `topicArn`, `subject`, and `message`.
+The publisher Lambda is a single function on the stack. The EventBridge
+target `id` is accepted for {@link events.IRuleTarget} compatibility and
+is not used to identify the function.
 
 ###### `rule`<sup>Required</sup> <a name="rule" id="eventbridge-email-notifier.EventBridgeEmailNotifier.bind.parameter.rule"></a>
 

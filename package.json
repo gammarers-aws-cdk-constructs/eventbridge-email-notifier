@@ -1,6 +1,6 @@
 {
   "name": "eventbridge-email-notifier",
-  "description": "EventBridge rule target that sends email through Amazon SNS with a custom subject.",
+  "description": "EventBridge rule target that sends email through Amazon SNS with a static or event-derived subject.",
   "repository": {
     "type": "git",
     "url": "https://github.com/gammarers-aws-cdk-constructs/eventbridge-email-notifier.git"
@@ -40,13 +40,16 @@
   },
   "devDependencies": {
     "@aws-sdk/client-sns": "^3.1146.0",
-    "@gammarers/projen-projects": "^0.5.10",
+    "@gammarers/projen-projects": "^0.8.0",
+    "@smithy/node-http-handler": "^4.14.2",
     "@stylistic/eslint-plugin": "^2",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@typescript-eslint/eslint-plugin": "^8",
     "@typescript-eslint/parser": "^8",
     "aws-cdk-lib": "2.272.0",
+    "aws-sdk-client-mock": "^4.1.0",
+    "aws-sdk-client-mock-jest": "^4.1.0",
     "commit-and-tag-version": "^13",
     "constructs": "10.5.1",
     "esbuild": "^0.28.2",
@@ -61,8 +64,7 @@
     "jsii-pacmak": "^1.142.0",
     "jsii-rosetta": "6.0.x",
     "projen": "^0.104.27",
-    "quiet-json-parser": "^0.3.2",
-    "strict-env-resolver": "^0.7.2",
+    "quiet-json-parser": "^0.4.3",
     "ts-jest": "^29.4.15",
     "ts-node": "^10.9.2",
     "typescript": "6.0.x"
@@ -97,6 +99,14 @@
   "version": "0.0.0",
   "jest": {
     "coverageProvider": "v8",
+    "coverageThreshold": {
+      "global": {
+        "branches": 95,
+        "functions": 90,
+        "lines": 100,
+        "statements": 100
+      }
+    },
     "testMatch": [
       "<rootDir>/@(src|test)/**/*(*.)@(spec|test).ts?(x)",
       "<rootDir>/@(src|test)/**/__tests__/**/*.ts?(x)",

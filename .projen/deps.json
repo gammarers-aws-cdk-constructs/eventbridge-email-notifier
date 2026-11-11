@@ -7,7 +7,12 @@
     },
     {
       "name": "@gammarers/projen-projects",
-      "version": "^0.5.10",
+      "version": "^0.8.0",
+      "type": "build"
+    },
+    {
+      "name": "@smithy/node-http-handler",
+      "version": "^4.14.2",
       "type": "build"
     },
     {
@@ -32,6 +37,16 @@
     {
       "name": "@typescript-eslint/parser",
       "version": "^8",
+      "type": "build"
+    },
+    {
+      "name": "aws-sdk-client-mock-jest",
+      "version": "^4.1.0",
+      "type": "build"
+    },
+    {
+      "name": "aws-sdk-client-mock",
+      "version": "^4.1.0",
       "type": "build"
     },
     {
@@ -94,12 +109,7 @@
     },
     {
       "name": "quiet-json-parser",
-      "version": "^0.3.2",
-      "type": "build"
-    },
-    {
-      "name": "strict-env-resolver",
-      "version": "^0.7.2",
+      "version": "^0.4.3",
       "type": "build"
     },
     {
