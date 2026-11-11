@@ -64,7 +64,7 @@ exports[`representative synthesized templates dead-letter queue and retry: dead-
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "e5e10415352ef8ce955374ff581a6b1e20e9a792c8c48d5d64102459369edf59.zip",
+          "S3Key": "470415f8fcd4604c891e8f9f2536396eaf63a97846092e02f1307ebb10e0e56c.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -259,7 +259,7 @@ exports[`representative synthesized templates distinct subjects: distinct subjec
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "e5e10415352ef8ce955374ff581a6b1e20e9a792c8c48d5d64102459369edf59.zip",
+          "S3Key": "470415f8fcd4604c891e8f9f2536396eaf63a97846092e02f1307ebb10e0e56c.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -461,7 +461,7 @@ exports[`representative synthesized templates event path subject: event path sub
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "e5e10415352ef8ce955374ff581a6b1e20e9a792c8c48d5d64102459369edf59.zip",
+          "S3Key": "470415f8fcd4604c891e8f9f2536396eaf63a97846092e02f1307ebb10e0e56c.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -647,7 +647,7 @@ exports[`representative synthesized templates reused subject: reused subject 1`]
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "e5e10415352ef8ce955374ff581a6b1e20e9a792c8c48d5d64102459369edf59.zip",
+          "S3Key": "470415f8fcd4604c891e8f9f2536396eaf63a97846092e02f1307ebb10e0e56c.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -849,7 +849,7 @@ exports[`representative synthesized templates static subject: static subject 1`]
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "e5e10415352ef8ce955374ff581a6b1e20e9a792c8c48d5d64102459369edf59.zip",
+          "S3Key": "470415f8fcd4604c891e8f9f2536396eaf63a97846092e02f1307ebb10e0e56c.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {

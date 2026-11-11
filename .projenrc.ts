@@ -13,7 +13,7 @@ const project = new ProjenCdkConstructLibrary({
     '@smithy/node-http-handler@^4.14.2',
     'aws-sdk-client-mock@^4.1.0',
     'aws-sdk-client-mock-jest@^4.1.0',
-    'quiet-json-parser@^0.3.2',
+    'quiet-json-parser@^0.4.3',
   ],
 });
 project.synth();
