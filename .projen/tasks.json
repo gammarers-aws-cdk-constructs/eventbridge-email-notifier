@@ -448,7 +448,6 @@
             "jsii",
             "projen",
             "quiet-json-parser",
-            "strict-env-resolver",
             "ts-jest",
             "ts-node",
             "typescript",

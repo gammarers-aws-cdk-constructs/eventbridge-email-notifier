@@ -1,12 +1,17 @@
 /**
- * Environment variable that carries the SNS topic ARN into the publisher.
+ * JSON field carrying the SNS topic ARN in the publisher payload.
  */
-export const TOPIC_ARN_ENV = 'TOPIC_ARN';
+export const PUBLISH_TOPIC_ARN_FIELD = 'topicArn';
 
 /**
- * Environment variable that carries the sanitized SNS subject into the publisher.
+ * JSON field carrying the SNS subject in the publisher payload.
  */
-export const SUBJECT_ENV = 'SUBJECT';
+export const PUBLISH_SUBJECT_FIELD = 'subject';
+
+/**
+ * JSON field carrying the SNS message body in the publisher payload.
+ */
+export const PUBLISH_MESSAGE_FIELD = 'message';
 
 /**
  * SNS Publish Subject must be shorter than 100 characters.

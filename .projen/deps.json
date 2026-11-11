@@ -98,11 +98,6 @@
       "type": "build"
     },
     {
-      "name": "strict-env-resolver",
-      "version": "^0.7.2",
-      "type": "build"
-    },
-    {
       "name": "ts-jest",
       "type": "build"
     },

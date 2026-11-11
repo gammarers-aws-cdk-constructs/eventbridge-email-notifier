@@ -1,15 +1,9 @@
-import { StrictEnvValidationError } from 'strict-env-resolver';
 import { handler, toSnsMessage } from '../src/funcs/sns-publish.lambda';
-import { SUBJECT_ENV, TOPIC_ARN_ENV } from '../src/settings/consts';
-
-const restoreEnv = (name: string, value: string | undefined): void => {
-  if (value === undefined) {
-    delete process.env[name];
-    return;
-  }
-
-  process.env[name] = value;
-};
+import {
+  PUBLISH_MESSAGE_FIELD,
+  PUBLISH_SUBJECT_FIELD,
+  PUBLISH_TOPIC_ARN_FIELD,
+} from '../src/settings/consts';
 
 describe('toSnsMessage', () => {
   test.each([
@@ -29,17 +23,22 @@ describe('toSnsMessage', () => {
 });
 
 describe('handler', () => {
-  test('fails when the topic or subject is missing', async () => {
-    const previousTopicArn = process.env[TOPIC_ARN_ENV];
-    const previousSubject = process.env[SUBJECT_ENV];
-    delete process.env[TOPIC_ARN_ENV];
-    delete process.env[SUBJECT_ENV];
+  test('fails when the payload is not an object', async () => {
+    await expect(handler('Pipeline failed')).rejects.toThrow(/topicArn, subject, and message/);
+  });
 
-    try {
-      await expect(handler({ source: 'aws.codepipeline' })).rejects.toBeInstanceOf(StrictEnvValidationError);
-    } finally {
-      restoreEnv(TOPIC_ARN_ENV, previousTopicArn);
-      restoreEnv(SUBJECT_ENV, previousSubject);
-    }
+  test('fails when the subject is empty after sanitization', async () => {
+    await expect(handler({
+      [PUBLISH_TOPIC_ARN_FIELD]: 'arn:aws:sns:us-east-1:123456789012:alerts',
+      [PUBLISH_SUBJECT_FIELD]: '\n\t',
+      [PUBLISH_MESSAGE_FIELD]: 'Check the pipeline',
+    })).rejects.toThrow(/non-control character/);
+  });
+
+  test('fails when topicArn is missing', async () => {
+    await expect(handler({
+      [PUBLISH_SUBJECT_FIELD]: 'Pipeline failed',
+      [PUBLISH_MESSAGE_FIELD]: 'Check the pipeline',
+    })).rejects.toThrow(/topicArn/);
   });
 });

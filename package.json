@@ -1,6 +1,6 @@
 {
   "name": "eventbridge-email-notifier",
-  "description": "EventBridge rule target that sends email through Amazon SNS with a custom subject.",
+  "description": "EventBridge rule target that sends email through Amazon SNS with a static or event-derived subject.",
   "repository": {
     "type": "git",
     "url": "https://github.com/gammarers-aws-cdk-constructs/eventbridge-email-notifier.git"
@@ -62,7 +62,6 @@
     "jsii-rosetta": "6.0.x",
     "projen": "^0.104.27",
     "quiet-json-parser": "^0.3.2",
-    "strict-env-resolver": "^0.7.2",
     "ts-jest": "^29.4.15",
     "ts-node": "^10.9.2",
     "typescript": "6.0.x"

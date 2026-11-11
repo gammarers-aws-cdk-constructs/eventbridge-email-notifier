@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { Duration, Names, Stack, Token, TokenComparison } from 'aws-cdk-lib';
+import { Duration, Names, Stack, Token, TokenComparison, Tokenization } from 'aws-cdk-lib';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
@@ -8,14 +8,24 @@ import type * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 import { SnsPublishFunction } from './funcs/sns-publish-function';
 import {
+  PUBLISH_MESSAGE_FIELD,
+  PUBLISH_SUBJECT_FIELD,
+  PUBLISH_TOPIC_ARN_FIELD,
   SNS_SUBJECT_MAX_LENGTH,
-  SUBJECT_ENV,
-  TOPIC_ARN_ENV,
 } from './settings/consts';
 
 const PUBLISHER_CONSTRUCT_ID_PREFIX = 'EventBridgeEmailNotifier';
 const PUBLISHER_CONSTRUCT_ID_HASH_LENGTH = 16;
 const PUBLISHER_CONFIG_MARKER_ID = 'PublisherConfig';
+const TEXT_SUBJECT_IDENTITY_PREFIX = 'text:';
+const PATH_SUBJECT_IDENTITY_PREFIX = 'path:';
+const INPUT_SUBJECT_IDENTITY_PREFIX = 'input:';
+
+/**
+ * EventBridge predefined variable for the full event JSON.
+ * Valid only as a JSON value inside an input template.
+ */
+const EVENT_JSON_VARIABLE = '<aws.events.event.json>';
 
 /** Control characters forbidden in SNS Subject (line breaks and other Cc). */
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F-\u009F]/g;
@@ -27,16 +37,25 @@ export interface EventBridgeEmailNotifierProps {
   /**
    * Email subject used when publishing to SNS.
    *
-   * Control characters (including newlines) are removed and the value is
-   * truncated to {@link SNS_SUBJECT_MAX_LENGTH} characters to satisfy SNS
-   * Publish constraints.
+   * A string is sanitized when the stack is synthesized: control characters
+   * (including newlines) are removed and the value is truncated to
+   * {@link SNS_SUBJECT_MAX_LENGTH} characters.
+   *
+   * An event value is sent through the input transformer and sanitized when
+   * the publisher Lambda runs. Use `events.EventField.fromPath('$.detail.state')`
+   * or `events.RuleTargetInput.fromEventPath('$.detail.state')`.
+   * `events.RuleTargetInput.fromText` sets a static subject.
+   * The value that reaches the Lambda must be a string. An object fails that invocation.
    */
-  readonly subject: string;
+  readonly subject: string | events.RuleTargetInput;
 
   /**
-   * Message body sent to the Lambda target (then published to SNS).
+   * Message body published to SNS.
    *
-   * @default the entire EventBridge event (JSON-serialized)
+   * The Lambda receives this value as the `message` field and publishes it.
+   * Strings are published as-is. Other values are JSON-serialized.
+   *
+   * @default the entire EventBridge event
    */
   readonly message?: events.RuleTargetInput;
 
@@ -83,8 +102,13 @@ export const sanitizeSnsSubject = (subject: string): string => {
  * target (it stays "AWS Notification Message"). This target routes through
  * Lambda so Publish can set Subject.
  *
- * On a given rule, publisher Lambdas are keyed by topic ARN + sanitized
- * subject: identical pairs reuse one function; different pairs never share.
+ * The Lambda event is `{ topicArn, subject, message }` built with an input
+ * transformer. Static subjects are checked at synthesis. Subjects taken from
+ * the event are checked on each invocation.
+ *
+ * On a given rule, publisher Lambdas are keyed by topic ARN and subject
+ * specification (sanitized text or event path). Identical specifications reuse
+ * one function; different specifications never share.
  *
  * Email subscriptions are not created here; manage them in the console or API.
  * This target does not change the topic resource policy.
@@ -98,43 +122,38 @@ export const sanitizeSnsSubject = (subject: string): string => {
 export class EventBridgeEmailNotifier implements events.IRuleTarget {
   private readonly topic: sns.ITopic;
   private readonly props: EventBridgeEmailNotifierProps;
-  private readonly sanitizedSubject: string;
 
   /**
    * @param topic - SNS topic used for email delivery
    * @param props - Subject, message, and EventBridge retry / DLQ options
-   * @throws Error when the subject is empty after sanitization
+   * @throws Error when a string subject is empty after sanitization, or is an unresolved token that is not an event path
    */
   constructor(topic: sns.ITopic, props: EventBridgeEmailNotifierProps) {
     this.topic = topic;
     this.props = props;
-
-    const sanitized = sanitizeSnsSubject(props.subject);
-    if (sanitized.length === 0) {
-      throw new Error(
-        'subject must contain at least one non-control character after sanitization',
-      );
-    }
-    this.sanitizedSubject = sanitized;
+    ensureSubjectAtConstruction(props.subject);
   }
 
   /**
    * Bind this notifier as an EventBridge rule target (Lambda → SNS Publish).
    *
-   * Publisher construct ids are derived from topic ARN + sanitized subject so
-   * multiple targets on the same rule do not reuse a Lambda with a different
-   * subject or topic. The EventBridge target `id` is accepted for
+   * The target input is an object with `topicArn`, `subject`, and `message`.
+   * Publisher construct ids are derived from the topic ARN and the subject
+   * specification so targets on the same rule do not share a Lambda across
+   * different subjects or topics. The EventBridge target `id` is accepted for
    * {@link events.IRuleTarget} compatibility and is not used for the construct id.
    *
    * @param rule - Rule that will invoke the publisher Lambda
    * @param _id - EventBridge target id from the rule (unused for construct ids)
    * @returns Rule target configuration including retry / DLQ settings
+   * @throws Error when a static `RuleTargetInput` subject is empty after sanitization
    */
   public bind(rule: events.IRuleRef, _id?: string): events.RuleTargetConfig {
+    const resolvedSubject = resolveSubject(rule, this.topic, this.props.subject);
     const scope = resolveBindScope(rule, this.topic);
     const constructId = publisherConstructId(
       this.topic.topicArn,
-      this.sanitizedSubject,
+      resolvedSubject.identity,
     );
 
     const existing = scope.node.tryFindChild(constructId);
@@ -142,9 +161,9 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
       ? reusePublisherFunction(
         existing,
         this.topic.topicArn,
-        this.sanitizedSubject,
+        resolvedSubject.identity,
       )
-      : this.createPublisherFunction(scope, constructId);
+      : this.createPublisherFunction(scope, constructId, resolvedSubject.identity);
 
     addLambdaInvokePermission(rule, handler);
 
@@ -155,36 +174,391 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
     return {
       ...bindRetryAndDlqConfig(this.props),
       arn: handler.functionArn,
-      input: this.props.message,
+      input: new PublisherEventInput(this.topic, resolvedSubject, this.props.message),
       targetResource: handler,
     };
   }
 
-  private createPublisherFunction(scope: Construct, id: string): lambda.Function {
+  private createPublisherFunction(
+    scope: Construct,
+    id: string,
+    subjectIdentity: string,
+  ): lambda.Function {
     const handler = new SnsPublishFunction(scope, id, {
       description: 'Publish EventBridge events to SNS with a custom email subject',
       timeout: Duration.seconds(30),
-      environment: {
-        [TOPIC_ARN_ENV]: this.topic.topicArn,
-        [SUBJECT_ENV]: this.sanitizedSubject,
-      },
     });
 
-    // Marker keeps unresolved tokens so reuse can compare without resolve().
-    new PublisherConfigMarker(handler, this.topic.topicArn, this.sanitizedSubject);
+    // Topic ARN and subject are target-input fields so a subject can come
+    // from the event. The function is still one per topic and subject specification.
+    new PublisherConfigMarker(handler, this.topic.topicArn, subjectIdentity);
     this.topic.grantPublish(handler);
     return handler;
   }
 }
 
+interface ResolvedSubject {
+  readonly identity: string;
+  readonly input: events.RuleTargetInput;
+}
+
+interface InputFragment {
+  readonly json: string;
+  readonly paths: { [key: string]: string };
+}
+
 /**
- * Stable construct id so the same topic+subject pair can share a Lambda.
+ * Target input `{ topicArn, subject, message }` for the publisher Lambda.
  */
-const publisherConstructId = (topicArn: string, subject: string): string => {
+class PublisherEventInput extends events.RuleTargetInput {
+  private readonly topic: sns.ITopic;
+  private readonly subject: ResolvedSubject;
+  private readonly message: events.RuleTargetInput | undefined;
+
+  constructor(
+    topic: sns.ITopic,
+    subject: ResolvedSubject,
+    message: events.RuleTargetInput | undefined,
+  ) {
+    super();
+    this.topic = topic;
+    this.subject = subject;
+    this.message = message;
+  }
+
+  public bind(rule: events.IRuleRef): events.RuleTargetInputProperties {
+    return bindPublisherInput(rule, this.topic, this.subject, this.message);
+  }
+}
+
+/**
+ * Reject string subjects that cannot be checked at construction.
+ */
+const ensureSubjectAtConstruction = (subject: string | events.RuleTargetInput): void => {
+  if (typeof subject !== 'string') {
+    return;
+  }
+
+  if (eventFieldPath(subject) !== undefined) {
+    return;
+  }
+
+  ensureStaticSubject(subject);
+};
+
+/**
+ * Reject unresolved tokens and subjects that sanitize to empty.
+ */
+const ensureStaticSubject = (subject: string): void => {
+  if (Token.isUnresolved(subject)) {
+    throw new Error('subject must be a string or an event path');
+  }
+
+  if (sanitizeSnsSubject(subject).length === 0) {
+    throw new Error(
+      'subject must contain at least one non-control character after sanitization',
+    );
+  }
+};
+
+/**
+ * Event path stored inside an `EventField.fromPath` token, if this string is one.
+ */
+const eventFieldPath = (value: string): string | undefined => {
+  const resolvable = Tokenization.reverse(value, { failConcat: false });
+  if (!(resolvable instanceof events.EventField)) {
+    return undefined;
+  }
+
+  return resolvable.path;
+};
+
+const textSubject = (subject: string): ResolvedSubject => {
+  const sanitized = sanitizeSnsSubject(subject);
+  if (sanitized.length === 0) {
+    throw new Error(
+      'subject must contain at least one non-control character after sanitization',
+    );
+  }
+
+  return {
+    identity: `${TEXT_SUBJECT_IDENTITY_PREFIX}${sanitized}`,
+    input: events.RuleTargetInput.fromText(sanitized),
+  };
+};
+
+const pathSubject = (path: string): ResolvedSubject => {
+  return {
+    identity: `${PATH_SUBJECT_IDENTITY_PREFIX}${path}`,
+    input: events.RuleTargetInput.fromEventPath(path),
+  };
+};
+
+/**
+ * Normalize a subject to a stable identity and a `RuleTargetInput`.
+ *
+ * Plain strings and static text are sanitized here. A single event path stays
+ * a path so the Lambda sees the value extracted at delivery time.
+ */
+const resolveSubject = (
+  rule: events.IRuleRef,
+  topic: sns.ITopic,
+  subject: string | events.RuleTargetInput,
+): ResolvedSubject => {
+  if (typeof subject === 'string') {
+    const path = eventFieldPath(subject);
+    if (path !== undefined) {
+      return pathSubject(path);
+    }
+
+    ensureStaticSubject(subject);
+    return textSubject(subject);
+  }
+
+  const stack = resolutionStack(rule, topic);
+  const bound = subject.bind(rule);
+
+  if (bound.inputPath !== undefined) {
+    return pathSubject(bound.inputPath);
+  }
+
+  const materializedInput = materializeInput(stack, bound.input);
+  const pathCount = Object.keys(bound.inputPathsMap ?? {}).length;
+  if (materializedInput !== undefined && !Token.isUnresolved(materializedInput) && pathCount === 0) {
+    const parsed = parseJsonValue(materializedInput);
+    if (typeof parsed === 'string') {
+      return textSubject(parsed);
+    }
+  }
+
+  const materializedTemplate = materializeInput(stack, bound.inputTemplate);
+  const lonePath = loneEventPath(bound.inputPathsMap, materializedTemplate);
+  if (lonePath !== undefined) {
+    return pathSubject(lonePath);
+  }
+
+  return {
+    identity: `${INPUT_SUBJECT_IDENTITY_PREFIX}${JSON.stringify({
+      input: materializedInput,
+      inputPath: bound.inputPath,
+      inputPathsMap: bound.inputPathsMap,
+      inputTemplate: materializedTemplate,
+    })}`,
+    input: subject,
+  };
+};
+
+/**
+ * One event path when the template is only that placeholder.
+ */
+const loneEventPath = (
+  paths: { [key: string]: string } | undefined,
+  template: string | undefined,
+): string | undefined => {
+  if (paths === undefined || template === undefined || Token.isUnresolved(template)) {
+    return undefined;
+  }
+
+  const keys = Object.keys(paths);
+  if (keys.length !== 1) {
+    return undefined;
+  }
+
+  const key = keys[0];
+  if (template !== `<${key}>` && template !== `"<${key}>"`) {
+    return undefined;
+  }
+
+  return paths[key];
+};
+
+/**
+ * Build the publisher event. Path values stay unquoted so EventBridge can
+ * quote strings and embed objects. Literal text is already JSON.
+ */
+const bindPublisherInput = (
+  rule: events.IRuleRef,
+  topic: sns.ITopic,
+  subject: ResolvedSubject,
+  message: events.RuleTargetInput | undefined,
+): events.RuleTargetInputProperties => {
+  const stack = resolutionStack(rule, topic);
+  const subjectFragment = sanitizeConstantSubjectFragment(
+    bindInputFragment(rule, stack, subject.input, PUBLISH_SUBJECT_FIELD),
+  );
+  const messageFragment = message === undefined
+    ? { json: EVENT_JSON_VARIABLE, paths: {} }
+    : bindInputFragment(rule, stack, message, PUBLISH_MESSAGE_FIELD);
+  const topicJson = stack.toJsonString(topic.topicArn);
+  const envelope = [
+    `{"${PUBLISH_TOPIC_ARN_FIELD}":${topicJson}`,
+    `"${PUBLISH_SUBJECT_FIELD}":${subjectFragment.json}`,
+    `"${PUBLISH_MESSAGE_FIELD}":${messageFragment.json}}`,
+  ].join(',');
+  const inputPathsMap = mergePathMaps(subjectFragment.paths, messageFragment.paths);
+
+  if (!fragmentNeedsTemplate(subjectFragment) && !fragmentNeedsTemplate(messageFragment)) {
+    return { input: envelope };
+  }
+
+  if (Object.keys(inputPathsMap).length === 0) {
+    return { inputTemplate: envelope };
+  }
+
+  return {
+    inputTemplate: envelope,
+    inputPathsMap,
+  };
+};
+
+const bindInputFragment = (
+  rule: events.IRuleRef,
+  stack: Stack,
+  input: events.RuleTargetInput,
+  fieldName: string,
+): InputFragment => {
+  const bound = input.bind(rule);
+
+  if (bound.inputPath !== undefined) {
+    return {
+      json: `<${fieldName}>`,
+      paths: { [fieldName]: bound.inputPath },
+    };
+  }
+
+  const materializedInput = materializeInput(stack, bound.input);
+  const pathCount = Object.keys(bound.inputPathsMap ?? {}).length;
+  if (materializedInput !== undefined && !Token.isUnresolved(materializedInput) && pathCount === 0) {
+    return { json: materializedInput, paths: {} };
+  }
+
+  const template = materializeInput(stack, bound.inputTemplate) ?? materializedInput;
+  if (template === undefined) {
+    throw new Error(`${fieldName} must be text, an event path, or an object input`);
+  }
+
+  return prefixResolvedPathKeys(template, bound.inputPathsMap ?? {}, `${fieldName}_`);
+};
+
+/**
+ * Re-sanitize static JSON strings. Path-based subjects are sanitized at runtime.
+ */
+const sanitizeConstantSubjectFragment = (fragment: InputFragment): InputFragment => {
+  if (Object.keys(fragment.paths).length > 0 || Token.isUnresolved(fragment.json)) {
+    return fragment;
+  }
+
+  const parsed = parseJsonValue(fragment.json);
+  if (typeof parsed !== 'string') {
+    return fragment;
+  }
+
+  return {
+    json: JSON.stringify(sanitizeSnsSubject(parsed)),
+    paths: {},
+  };
+};
+
+const prefixResolvedPathKeys = (
+  template: string,
+  paths: { [key: string]: string },
+  prefix: string,
+): InputFragment => {
+  const keys = Object.keys(paths).sort((left, right) => right.length - left.length);
+  if (keys.length === 0 || Token.isUnresolved(template)) {
+    return { json: template, paths };
+  }
+
+  const prefixed: { [key: string]: string } = {};
+  for (const key of keys) {
+    prefixed[`${prefix}${key}`] = paths[key];
+  }
+
+  return {
+    json: replacePlaceholderKeys(template, keys, prefix),
+    paths: prefixed,
+  };
+};
+
+const replacePlaceholderKeys = (
+  template: string,
+  keys: readonly string[],
+  prefix: string,
+): string => {
+  return keys.reduce((current, key) => {
+    return current.split(`<${key}>`).join(`<${prefix}${key}>`);
+  }, template);
+};
+
+const fragmentNeedsTemplate = (fragment: InputFragment): boolean => {
+  if (Object.keys(fragment.paths).length > 0) {
+    return true;
+  }
+
+  return fragment.json.includes('<');
+};
+
+const mergePathMaps = (
+  subjectPaths: { [key: string]: string },
+  messagePaths: { [key: string]: string },
+): { [key: string]: string } => {
+  for (const key of Object.keys(messagePaths)) {
+    const existing = subjectPaths[key];
+    if (existing !== undefined && existing !== messagePaths[key]) {
+      throw new Error(`subject and message use the same input path key "${key}"`);
+    }
+  }
+
+  return {
+    ...subjectPaths,
+    ...messagePaths,
+  };
+};
+
+/**
+ * Resolve input JSON to a string when CloudFormation intrinsics are not required.
+ */
+const materializeInput = (stack: Stack, value: string | undefined): string | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Token.isUnresolved(value)) {
+    return value;
+  }
+
+  const resolved = stack.resolve(value);
+  if (typeof resolved !== 'string') {
+    return value;
+  }
+
+  return resolved;
+};
+
+const parseJsonValue = (json: string): unknown => {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return undefined;
+  }
+};
+
+const resolutionStack = (rule: events.IRuleRef, topic: sns.ITopic): Stack => {
+  if (Construct.isConstruct(rule)) {
+    return Stack.of(rule);
+  }
+
+  return Stack.of(topic);
+};
+
+/**
+ * Stable construct id so the same topic and subject specification can share a Lambda.
+ */
+const publisherConstructId = (topicArn: string, subjectIdentity: string): string => {
   const digest = createHash('sha256')
     .update(topicArn)
     .update('\0')
-    .update(subject)
+    .update(subjectIdentity)
     .digest('hex')
     .slice(0, PUBLISHER_CONSTRUCT_ID_HASH_LENGTH);
 
@@ -192,12 +566,12 @@ const publisherConstructId = (topicArn: string, subject: string): string => {
 };
 
 /**
- * Reuse an existing publisher only when the stored topic ARN and subject match.
+ * Reuse an existing publisher only when the stored topic ARN and subject specification match.
  */
 const reusePublisherFunction = (
   existing: lambda.Function,
   topicArn: string,
-  subject: string,
+  subjectIdentity: string,
 ): lambda.Function => {
   const marker = existing.node.tryFindChild(PUBLISHER_CONFIG_MARKER_ID);
   if (!(marker instanceof PublisherConfigMarker)) {
@@ -206,10 +580,10 @@ const reusePublisherFunction = (
     );
   }
 
-  if (marker.subject !== subject) {
+  if (marker.subject !== subjectIdentity) {
     throw new Error(
       `Cannot reuse EventBridgeEmailNotifier Lambda "${existing.node.id}": ` +
-      `subject mismatch (existing=${JSON.stringify(marker.subject)}, requested=${JSON.stringify(subject)})`,
+      `subject mismatch (existing=${JSON.stringify(marker.subject)}, requested=${JSON.stringify(subjectIdentity)})`,
     );
   }
 
