@@ -1,0 +1,1114 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`representative synthesized templates dead-letter queue and retry: dead-letter queue and retry 1`] = `
+{
+  "Parameters": {
+    "BootstrapVersion": {
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+  },
+  "Resources": {
+    "DlqD1FAA4AD": {
+      "DeletionPolicy": "Delete",
+      "Type": "AWS::SQS::Queue",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "DlqPolicyF16811D6": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sqs:SendMessage",
+              "Condition": {
+                "ArnEquals": {
+                  "aws:SourceArn": {
+                    "Fn::GetAtt": [
+                      "Rule4C995B7F",
+                      "Arn",
+                    ],
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "events.amazonaws.com",
+              },
+              "Resource": {
+                "Fn::GetAtt": [
+                  "DlqD1FAA4AD",
+                  "Arn",
+                ],
+              },
+              "Sid": "AllowEventRuleTestStackRule3795E55D",
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "Queues": [
+          {
+            "Ref": "DlqD1FAA4AD",
+          },
+        ],
+      },
+      "Type": "AWS::SQS::QueuePolicy",
+    },
+    "Rule4C995B7F": {
+      "Properties": {
+        "EventPattern": {
+          "source": [
+            "aws.codepipeline",
+          ],
+        },
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "RuleEventBridgeEmailNotifiera6d244e489d30034758B9A53",
+                "Arn",
+              ],
+            },
+            "DeadLetterConfig": {
+              "Arn": {
+                "Fn::GetAtt": [
+                  "DlqD1FAA4AD",
+                  "Arn",
+                ],
+              },
+            },
+            "Id": "Target0",
+            "InputTransformer": {
+              "InputTemplate": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "{"topicArn":"",
+                    {
+                      "Ref": "TopicBFC7AF6E",
+                    },
+                    "","subject":"With retries","message":<aws.events.event.json>}",
+                  ],
+                ],
+              },
+            },
+            "RetryPolicy": {
+              "MaximumEventAgeInSeconds": 7200,
+              "MaximumRetryAttempts": 2,
+            },
+          },
+        ],
+      },
+      "Type": "AWS::Events::Rule",
+    },
+    "RuleAllowEventRuleTestStackRuleEventBridgeEmailNotifiera6d244e489d300340D032FA40C2591EC": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifiera6d244e489d30034758B9A53",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "Rule4C995B7F",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "RuleEventBridgeEmailNotifiera6d244e489d30034758B9A53": {
+      "DependsOn": [
+        "RuleEventBridgeEmailNotifiera6d244e489d30034ServiceRoleDefaultPolicy46FD7609",
+        "RuleEventBridgeEmailNotifiera6d244e489d30034ServiceRole19326E0B",
+      ],
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "faaa7cec5fd9ad9896e70cd93ed8daacd23d5eb735c64aca685468726d834a68.zip",
+        },
+        "Description": "Publish EventBridge events to SNS with a custom email subject",
+        "Environment": {
+          "Variables": {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+          },
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifiera6d244e489d30034ServiceRole19326E0B",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs24.x",
+        "Timeout": 30,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "RuleEventBridgeEmailNotifiera6d244e489d30034ServiceRole19326E0B": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "RuleEventBridgeEmailNotifiera6d244e489d30034ServiceRoleDefaultPolicy46FD7609": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "TopicBFC7AF6E",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "RuleEventBridgeEmailNotifiera6d244e489d30034ServiceRoleDefaultPolicy46FD7609",
+        "Roles": [
+          {
+            "Ref": "RuleEventBridgeEmailNotifiera6d244e489d30034ServiceRole19326E0B",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TopicBFC7AF6E": {
+      "Type": "AWS::SNS::Topic",
+    },
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                  ],
+                  {
+                    "Ref": "BootstrapVersion",
+                  },
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.",
+        },
+      ],
+    },
+  },
+}
+`;
+
+exports[`representative synthesized templates distinct subjects: distinct subjects 1`] = `
+{
+  "Parameters": {
+    "BootstrapVersion": {
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+  },
+  "Resources": {
+    "Rule4C995B7F": {
+      "Properties": {
+        "EventPattern": {
+          "source": [
+            "aws.codepipeline",
+          ],
+        },
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "RuleEventBridgeEmailNotifier598182b2c790ecb15AE4A949",
+                "Arn",
+              ],
+            },
+            "Id": "Target0",
+            "Input": {
+              "Fn::Join": [
+                "",
+                [
+                  "{"topicArn":"",
+                  {
+                    "Ref": "TopicBFC7AF6E",
+                  },
+                  "","subject":"First subject","message":"first"}",
+                ],
+              ],
+            },
+          },
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "RuleEventBridgeEmailNotifier22b19b969823bc7913131921",
+                "Arn",
+              ],
+            },
+            "Id": "Target1",
+            "Input": {
+              "Fn::Join": [
+                "",
+                [
+                  "{"topicArn":"",
+                  {
+                    "Ref": "TopicBFC7AF6E",
+                  },
+                  "","subject":"Second subject","message":"second"}",
+                ],
+              ],
+            },
+          },
+        ],
+      },
+      "Type": "AWS::Events::Rule",
+    },
+    "RuleAllowEventRuleTestStackRuleEventBridgeEmailNotifier22b19b969823bc798C488B1B5E4C1504": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifier22b19b969823bc7913131921",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "Rule4C995B7F",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "RuleAllowEventRuleTestStackRuleEventBridgeEmailNotifier598182b2c790ecb1F5C472B37CAC3E86": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifier598182b2c790ecb15AE4A949",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "Rule4C995B7F",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "RuleEventBridgeEmailNotifier22b19b969823bc7913131921": {
+      "DependsOn": [
+        "RuleEventBridgeEmailNotifier22b19b969823bc79ServiceRoleDefaultPolicy1ACCB8D7",
+        "RuleEventBridgeEmailNotifier22b19b969823bc79ServiceRole247F30DC",
+      ],
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "faaa7cec5fd9ad9896e70cd93ed8daacd23d5eb735c64aca685468726d834a68.zip",
+        },
+        "Description": "Publish EventBridge events to SNS with a custom email subject",
+        "Environment": {
+          "Variables": {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+          },
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifier22b19b969823bc79ServiceRole247F30DC",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs24.x",
+        "Timeout": 30,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "RuleEventBridgeEmailNotifier22b19b969823bc79ServiceRole247F30DC": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "RuleEventBridgeEmailNotifier22b19b969823bc79ServiceRoleDefaultPolicy1ACCB8D7": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "TopicBFC7AF6E",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "RuleEventBridgeEmailNotifier22b19b969823bc79ServiceRoleDefaultPolicy1ACCB8D7",
+        "Roles": [
+          {
+            "Ref": "RuleEventBridgeEmailNotifier22b19b969823bc79ServiceRole247F30DC",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "RuleEventBridgeEmailNotifier598182b2c790ecb15AE4A949": {
+      "DependsOn": [
+        "RuleEventBridgeEmailNotifier598182b2c790ecb1ServiceRoleDefaultPolicyB679FD32",
+        "RuleEventBridgeEmailNotifier598182b2c790ecb1ServiceRoleF81109D5",
+      ],
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "faaa7cec5fd9ad9896e70cd93ed8daacd23d5eb735c64aca685468726d834a68.zip",
+        },
+        "Description": "Publish EventBridge events to SNS with a custom email subject",
+        "Environment": {
+          "Variables": {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+          },
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifier598182b2c790ecb1ServiceRoleF81109D5",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs24.x",
+        "Timeout": 30,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "RuleEventBridgeEmailNotifier598182b2c790ecb1ServiceRoleDefaultPolicyB679FD32": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "TopicBFC7AF6E",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "RuleEventBridgeEmailNotifier598182b2c790ecb1ServiceRoleDefaultPolicyB679FD32",
+        "Roles": [
+          {
+            "Ref": "RuleEventBridgeEmailNotifier598182b2c790ecb1ServiceRoleF81109D5",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "RuleEventBridgeEmailNotifier598182b2c790ecb1ServiceRoleF81109D5": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "TopicBFC7AF6E": {
+      "Type": "AWS::SNS::Topic",
+    },
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                  ],
+                  {
+                    "Ref": "BootstrapVersion",
+                  },
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.",
+        },
+      ],
+    },
+  },
+}
+`;
+
+exports[`representative synthesized templates event path subject: event path subject 1`] = `
+{
+  "Parameters": {
+    "BootstrapVersion": {
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+  },
+  "Resources": {
+    "Rule4C995B7F": {
+      "Properties": {
+        "EventPattern": {
+          "source": [
+            "aws.codepipeline",
+          ],
+        },
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "RuleEventBridgeEmailNotifier7d46bfc3eafb505b6D364708",
+                "Arn",
+              ],
+            },
+            "Id": "Target0",
+            "InputTransformer": {
+              "InputPathsMap": {
+                "subject": "$.detail.state",
+              },
+              "InputTemplate": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "{"topicArn":"",
+                    {
+                      "Ref": "TopicBFC7AF6E",
+                    },
+                    "","subject":<subject>,"message":<aws.events.event.json>}",
+                  ],
+                ],
+              },
+            },
+          },
+        ],
+      },
+      "Type": "AWS::Events::Rule",
+    },
+    "RuleAllowEventRuleTestStackRuleEventBridgeEmailNotifier7d46bfc3eafb505b6B5399C8EBA66892": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifier7d46bfc3eafb505b6D364708",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "Rule4C995B7F",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "RuleEventBridgeEmailNotifier7d46bfc3eafb505b6D364708": {
+      "DependsOn": [
+        "RuleEventBridgeEmailNotifier7d46bfc3eafb505bServiceRoleDefaultPolicyCAC3C326",
+        "RuleEventBridgeEmailNotifier7d46bfc3eafb505bServiceRole52C9DF86",
+      ],
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "faaa7cec5fd9ad9896e70cd93ed8daacd23d5eb735c64aca685468726d834a68.zip",
+        },
+        "Description": "Publish EventBridge events to SNS with a custom email subject",
+        "Environment": {
+          "Variables": {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+          },
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifier7d46bfc3eafb505bServiceRole52C9DF86",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs24.x",
+        "Timeout": 30,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "RuleEventBridgeEmailNotifier7d46bfc3eafb505bServiceRole52C9DF86": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "RuleEventBridgeEmailNotifier7d46bfc3eafb505bServiceRoleDefaultPolicyCAC3C326": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "TopicBFC7AF6E",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "RuleEventBridgeEmailNotifier7d46bfc3eafb505bServiceRoleDefaultPolicyCAC3C326",
+        "Roles": [
+          {
+            "Ref": "RuleEventBridgeEmailNotifier7d46bfc3eafb505bServiceRole52C9DF86",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TopicBFC7AF6E": {
+      "Type": "AWS::SNS::Topic",
+    },
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                  ],
+                  {
+                    "Ref": "BootstrapVersion",
+                  },
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.",
+        },
+      ],
+    },
+  },
+}
+`;
+
+exports[`representative synthesized templates reused subject: reused subject 1`] = `
+{
+  "Parameters": {
+    "BootstrapVersion": {
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+  },
+  "Resources": {
+    "Rule4C995B7F": {
+      "Properties": {
+        "EventPattern": {
+          "source": [
+            "aws.codepipeline",
+          ],
+        },
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "RuleEventBridgeEmailNotifier388025d86c5e6900272B4503",
+                "Arn",
+              ],
+            },
+            "Id": "Target0",
+            "Input": {
+              "Fn::Join": [
+                "",
+                [
+                  "{"topicArn":"",
+                  {
+                    "Ref": "TopicBFC7AF6E",
+                  },
+                  "","subject":"Same subject","message":"one"}",
+                ],
+              ],
+            },
+          },
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "RuleEventBridgeEmailNotifier388025d86c5e6900272B4503",
+                "Arn",
+              ],
+            },
+            "Id": "Target1",
+            "Input": {
+              "Fn::Join": [
+                "",
+                [
+                  "{"topicArn":"",
+                  {
+                    "Ref": "TopicBFC7AF6E",
+                  },
+                  "","subject":"Same subject","message":"two"}",
+                ],
+              ],
+            },
+          },
+        ],
+      },
+      "Type": "AWS::Events::Rule",
+    },
+    "RuleAllowEventRuleTestStackRuleEventBridgeEmailNotifier388025d86c5e6900CCF6155B640BBC00": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifier388025d86c5e6900272B4503",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "Rule4C995B7F",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "RuleEventBridgeEmailNotifier388025d86c5e6900272B4503": {
+      "DependsOn": [
+        "RuleEventBridgeEmailNotifier388025d86c5e6900ServiceRoleDefaultPolicyE2CF8832",
+        "RuleEventBridgeEmailNotifier388025d86c5e6900ServiceRoleBEFA2088",
+      ],
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "faaa7cec5fd9ad9896e70cd93ed8daacd23d5eb735c64aca685468726d834a68.zip",
+        },
+        "Description": "Publish EventBridge events to SNS with a custom email subject",
+        "Environment": {
+          "Variables": {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+          },
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifier388025d86c5e6900ServiceRoleBEFA2088",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs24.x",
+        "Timeout": 30,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "RuleEventBridgeEmailNotifier388025d86c5e6900ServiceRoleBEFA2088": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "RuleEventBridgeEmailNotifier388025d86c5e6900ServiceRoleDefaultPolicyE2CF8832": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "TopicBFC7AF6E",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "RuleEventBridgeEmailNotifier388025d86c5e6900ServiceRoleDefaultPolicyE2CF8832",
+        "Roles": [
+          {
+            "Ref": "RuleEventBridgeEmailNotifier388025d86c5e6900ServiceRoleBEFA2088",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TopicBFC7AF6E": {
+      "Type": "AWS::SNS::Topic",
+    },
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                  ],
+                  {
+                    "Ref": "BootstrapVersion",
+                  },
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.",
+        },
+      ],
+    },
+  },
+}
+`;
+
+exports[`representative synthesized templates static subject: static subject 1`] = `
+{
+  "Parameters": {
+    "BootstrapVersion": {
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+  },
+  "Resources": {
+    "Rule4C995B7F": {
+      "Properties": {
+        "EventPattern": {
+          "source": [
+            "aws.codepipeline",
+          ],
+        },
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "RuleEventBridgeEmailNotifier1474280b0b848f65B9D27B06",
+                "Arn",
+              ],
+            },
+            "Id": "Target0",
+            "Input": {
+              "Fn::Join": [
+                "",
+                [
+                  "{"topicArn":"",
+                  {
+                    "Ref": "TopicBFC7AF6E",
+                  },
+                  "","subject":"Pipeline failed","message":"Check the pipeline"}",
+                ],
+              ],
+            },
+          },
+        ],
+      },
+      "Type": "AWS::Events::Rule",
+    },
+    "RuleAllowEventRuleTestStackRuleEventBridgeEmailNotifier1474280b0b848f6564D76F0B7F915CF6": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifier1474280b0b848f65B9D27B06",
+            "Arn",
+          ],
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "Rule4C995B7F",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "RuleEventBridgeEmailNotifier1474280b0b848f65B9D27B06": {
+      "DependsOn": [
+        "RuleEventBridgeEmailNotifier1474280b0b848f65ServiceRoleDefaultPolicyF09A5DE3",
+        "RuleEventBridgeEmailNotifier1474280b0b848f65ServiceRole6A4F927E",
+      ],
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "faaa7cec5fd9ad9896e70cd93ed8daacd23d5eb735c64aca685468726d834a68.zip",
+        },
+        "Description": "Publish EventBridge events to SNS with a custom email subject",
+        "Environment": {
+          "Variables": {
+            "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+          },
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "RuleEventBridgeEmailNotifier1474280b0b848f65ServiceRole6A4F927E",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs24.x",
+        "Timeout": 30,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "RuleEventBridgeEmailNotifier1474280b0b848f65ServiceRole6A4F927E": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "RuleEventBridgeEmailNotifier1474280b0b848f65ServiceRoleDefaultPolicyF09A5DE3": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "TopicBFC7AF6E",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "RuleEventBridgeEmailNotifier1474280b0b848f65ServiceRoleDefaultPolicyF09A5DE3",
+        "Roles": [
+          {
+            "Ref": "RuleEventBridgeEmailNotifier1474280b0b848f65ServiceRole6A4F927E",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "TopicBFC7AF6E": {
+      "Type": "AWS::SNS::Topic",
+    },
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                  ],
+                  {
+                    "Ref": "BootstrapVersion",
+                  },
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.",
+        },
+      ],
+    },
+  },
+}
+`;

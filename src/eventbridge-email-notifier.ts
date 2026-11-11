@@ -152,7 +152,7 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
     const resolvedSubject = resolveSubject(rule, this.topic, this.props.subject);
     const scope = resolveBindScope(rule, this.topic);
     const constructId = publisherConstructId(
-      this.topic.topicArn,
+      topicIdentity(this.topic),
       resolvedSubject.identity,
     );
 
@@ -552,11 +552,26 @@ const resolutionStack = (rule: events.IRuleRef, topic: sns.ITopic): Stack => {
 };
 
 /**
+ * Stable topic key for construct ids.
+ *
+ * A created topic's ARN token includes a process-local index, so hashing the
+ * raw token would change the Lambda logical ID on every synth. Resolve it to
+ * the CloudFormation reference instead. A literal ARN is already stable.
+ */
+const topicIdentity = (topic: sns.ITopic): string => {
+  if (!Token.isUnresolved(topic.topicArn)) {
+    return topic.topicArn;
+  }
+
+  return JSON.stringify(Stack.of(topic).resolve(topic.topicArn));
+};
+
+/**
  * Stable construct id so the same topic and subject specification can share a Lambda.
  */
-const publisherConstructId = (topicArn: string, subjectIdentity: string): string => {
+const publisherConstructId = (topicKey: string, subjectIdentity: string): string => {
   const digest = createHash('sha256')
-    .update(topicArn)
+    .update(topicKey)
     .update('\0')
     .update(subjectIdentity)
     .digest('hex')

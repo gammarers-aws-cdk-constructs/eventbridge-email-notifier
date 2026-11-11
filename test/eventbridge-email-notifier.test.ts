@@ -59,6 +59,70 @@ const lambdaVariable = (
   return variables[name];
 };
 
+const ruleTargets = (template: Template): Record<string, unknown>[] => {
+  const targets: Record<string, unknown>[] = [];
+
+  for (const resource of Object.values(template.findResources('AWS::Events::Rule'))) {
+    const properties: unknown = resource.Properties;
+    if (!isRecord(properties) || !Array.isArray(properties.Targets)) {
+      continue;
+    }
+
+    for (const target of properties.Targets) {
+      if (isRecord(target)) {
+        targets.push(target);
+      }
+    }
+  }
+
+  return targets;
+};
+
+const targetFunctionId = (target: Record<string, unknown>): string => {
+  const arn = target.Arn;
+  if (!isRecord(arn) || !Array.isArray(arn['Fn::GetAtt'])) {
+    throw new Error('target Arn must be a function GetAtt');
+  }
+
+  const logicalId = arn['Fn::GetAtt'][0];
+  if (typeof logicalId !== 'string') {
+    throw new Error('target Arn must name a function');
+  }
+
+  return logicalId;
+};
+
+/**
+ * Shared publisher wiring: one rule, the expected Lambda count, and no subject env vars.
+ */
+const expectPublisherWiring = (template: Template, lambdaCount: number): void => {
+  template.resourceCountIs('AWS::Events::Rule', 1);
+  template.resourceCountIs('AWS::Lambda::Function', lambdaCount);
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Runtime: 'nodejs24.x',
+    Handler: 'index.handler',
+    Code: {
+      ZipFile: Match.absent(),
+    },
+  });
+
+  for (const resource of Object.values(template.findResources('AWS::Lambda::Function'))) {
+    expect(lambdaVariable(resource, REMOVED_SUBJECT_ENV)).toBeUndefined();
+    expect(lambdaVariable(resource, REMOVED_TOPIC_ARN_ENV)).toBeUndefined();
+  }
+
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: 'sns:Publish',
+          Effect: 'Allow',
+        }),
+      ]),
+    },
+  });
+};
+
 describe('EventBridgeEmailNotifier', () => {
   test('routes EventBridge through Lambda to SNS with custom subject', () => {
     const { stack, topic, rule } = createStackWithRule();
@@ -69,35 +133,12 @@ describe('EventBridgeEmailNotifier', () => {
     }));
 
     const template = Template.fromStack(stack);
-
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      Runtime: 'nodejs24.x',
-      Handler: 'index.handler',
-      Code: {
-        ZipFile: Match.absent(),
-      },
-    });
+    expectPublisherWiring(template, 1);
 
     const payload = targetPayloadText(template);
     expect(payload).toContain('Pipeline failed');
     expect(payload).toContain('Check the pipeline');
     expect(payload).toContain('EventBridgeEmailNotifier');
-
-    for (const resource of Object.values(template.findResources('AWS::Lambda::Function'))) {
-      expect(lambdaVariable(resource, REMOVED_SUBJECT_ENV)).toBeUndefined();
-      expect(lambdaVariable(resource, REMOVED_TOPIC_ARN_ENV)).toBeUndefined();
-    }
-
-    template.hasResourceProperties('AWS::IAM::Policy', {
-      PolicyDocument: {
-        Statement: Match.arrayWith([
-          Match.objectLike({
-            Action: 'sns:Publish',
-            Effect: 'Allow',
-          }),
-        ]),
-      },
-    });
   });
 
   test('publishes the whole event when message is omitted', () => {
@@ -257,13 +298,20 @@ describe('EventBridgeEmailNotifier', () => {
     }));
 
     const template = Template.fromStack(stack);
-    expect(Object.keys(template.findResources('AWS::Lambda::Function'))).toHaveLength(2);
+    expectPublisherWiring(template, 2);
 
-    const payload = targetPayloadText(template);
-    expect(payload).toContain('First subject');
-    expect(payload).toContain('Second subject');
-    expect(payload).toContain('first');
-    expect(payload).toContain('second');
+    const targets = ruleTargets(template);
+    expect(targets).toHaveLength(2);
+    expect(targetFunctionId(targets[0])).not.toBe(targetFunctionId(targets[1]));
+
+    const first = JSON.stringify(targets[0]);
+    const second = JSON.stringify(targets[1]);
+    expect(first).toContain('First subject');
+    expect(first).toContain('first');
+    expect(first).not.toContain('Second subject');
+    expect(second).toContain('Second subject');
+    expect(second).toContain('second');
+    expect(second).not.toContain('First subject');
   });
 
   test('reuses one Lambda when topic and subject match on the same rule', () => {
@@ -279,12 +327,17 @@ describe('EventBridgeEmailNotifier', () => {
     }));
 
     const template = Template.fromStack(stack);
-    expect(Object.keys(template.findResources('AWS::Lambda::Function'))).toHaveLength(1);
-    template.resourceCountIs('AWS::Events::Rule', 1);
+    expectPublisherWiring(template, 1);
 
-    const payload = targetPayloadText(template);
-    expect(payload).toContain('one');
-    expect(payload).toContain('two');
+    const targets = ruleTargets(template);
+    expect(targets).toHaveLength(2);
+    expect(targetFunctionId(targets[0])).toBe(targetFunctionId(targets[1]));
+    expect(JSON.stringify(targets[0])).toContain('Same subject');
+    expect(JSON.stringify(targets[0])).toContain('one');
+    expect(JSON.stringify(targets[0])).not.toContain('two');
+    expect(JSON.stringify(targets[1])).toContain('Same subject');
+    expect(JSON.stringify(targets[1])).toContain('two');
+    expect(JSON.stringify(targets[1])).not.toContain('"one"');
   });
 
   test('reuses one Lambda when the event path is the same', () => {
@@ -300,12 +353,38 @@ describe('EventBridgeEmailNotifier', () => {
     }));
 
     const template = Template.fromStack(stack);
-    expect(Object.keys(template.findResources('AWS::Lambda::Function'))).toHaveLength(1);
+    expectPublisherWiring(template, 1);
 
-    const payload = targetPayloadText(template);
-    expect(payload).toContain('one');
-    expect(payload).toContain('two');
-    expect(payload).toContain('$.detail.state');
+    const targets = ruleTargets(template);
+    expect(targets).toHaveLength(2);
+    expect(targetFunctionId(targets[0])).toBe(targetFunctionId(targets[1]));
+    expect(JSON.stringify(targets[0])).toContain('$.detail.state');
+    expect(JSON.stringify(targets[0])).toContain('one');
+    expect(JSON.stringify(targets[1])).toContain('$.detail.state');
+    expect(JSON.stringify(targets[1])).toContain('two');
+  });
+
+  test('creates distinct Lambdas for the same subject on different topics', () => {
+    const { stack, topic, rule } = createStackWithRule();
+    const other = new sns.Topic(stack, 'OtherTopic');
+
+    rule.addTarget(new EventBridgeEmailNotifier(topic, {
+      subject: 'Same subject',
+      message: events.RuleTargetInput.fromText('one'),
+    }));
+    rule.addTarget(new EventBridgeEmailNotifier(other, {
+      subject: 'Same subject',
+      message: events.RuleTargetInput.fromText('two'),
+    }));
+
+    const template = Template.fromStack(stack);
+    expectPublisherWiring(template, 2);
+
+    const targets = ruleTargets(template);
+    expect(targets).toHaveLength(2);
+    expect(targetFunctionId(targets[0])).not.toBe(targetFunctionId(targets[1]));
+    expect(JSON.stringify(targets[0])).toContain('one');
+    expect(JSON.stringify(targets[1])).toContain('two');
   });
 
   test('creates distinct Lambdas when bind is called without an id', () => {
@@ -332,10 +411,20 @@ describe('EventBridgeEmailNotifier', () => {
     }));
 
     const template = Template.fromStack(stack);
-    const payload = targetPayloadText(template);
-    expect(payload).toContain('MaximumRetryAttempts');
-    expect(payload).toContain('7200');
-    expect(payload).toContain('DeadLetterConfig');
+    expectPublisherWiring(template, 1);
+    template.hasResourceProperties('AWS::Events::Rule', {
+      Targets: Match.arrayWith([
+        Match.objectLike({
+          DeadLetterConfig: {
+            Arn: Match.anyValue(),
+          },
+          RetryPolicy: {
+            MaximumRetryAttempts: 2,
+            MaximumEventAgeInSeconds: 7200,
+          },
+        }),
+      ]),
+    });
 
     template.hasResourceProperties('AWS::SQS::QueuePolicy', {
       PolicyDocument: {
@@ -350,5 +439,126 @@ describe('EventBridgeEmailNotifier', () => {
         ]),
       },
     });
+  });
+});
+
+interface SnapshotCase {
+  readonly name: string;
+  readonly lambdaCount: number;
+  readonly arrange: (scope: ReturnType<typeof createStackWithRule>) => void;
+  readonly assert: (template: Template) => void;
+}
+
+const snapshotCases: readonly SnapshotCase[] = [
+  {
+    name: 'static subject',
+    lambdaCount: 1,
+    arrange: ({ topic, rule }) => {
+      rule.addTarget(new EventBridgeEmailNotifier(topic, {
+        subject: 'Pipeline failed',
+        message: events.RuleTargetInput.fromText('Check the pipeline'),
+      }));
+    },
+    assert: (template) => {
+      const payload = targetPayloadText(template);
+      expect(payload).toContain('Pipeline failed');
+      expect(payload).toContain('Check the pipeline');
+    },
+  },
+  {
+    name: 'event path subject',
+    lambdaCount: 1,
+    arrange: ({ topic, rule }) => {
+      rule.addTarget(new EventBridgeEmailNotifier(topic, {
+        subject: events.EventField.fromPath('$.detail.state'),
+      }));
+    },
+    assert: (template) => {
+      const payload = targetPayloadText(template);
+      expect(payload).toContain('$.detail.state');
+      expect(payload).toContain('<aws.events.event.json>');
+    },
+  },
+  {
+    name: 'dead-letter queue and retry',
+    lambdaCount: 1,
+    arrange: ({ stack, topic, rule }) => {
+      rule.addTarget(new EventBridgeEmailNotifier(topic, {
+        subject: 'With retries',
+        deadLetterQueue: new sqs.Queue(stack, 'Dlq'),
+        retryAttempts: 2,
+        maxEventAge: Duration.hours(2),
+      }));
+    },
+    assert: (template) => {
+      template.hasResourceProperties('AWS::Events::Rule', {
+        Targets: Match.arrayWith([
+          Match.objectLike({
+            DeadLetterConfig: {
+              Arn: Match.anyValue(),
+            },
+            RetryPolicy: {
+              MaximumRetryAttempts: 2,
+              MaximumEventAgeInSeconds: 7200,
+            },
+          }),
+        ]),
+      });
+    },
+  },
+  {
+    name: 'distinct subjects',
+    lambdaCount: 2,
+    arrange: ({ topic, rule }) => {
+      rule.addTarget(new EventBridgeEmailNotifier(topic, {
+        subject: 'First subject',
+        message: events.RuleTargetInput.fromText('first'),
+      }));
+      rule.addTarget(new EventBridgeEmailNotifier(topic, {
+        subject: 'Second subject',
+        message: events.RuleTargetInput.fromText('second'),
+      }));
+    },
+    assert: (template) => {
+      const targets = ruleTargets(template);
+      expect(targets).toHaveLength(2);
+      expect(targetFunctionId(targets[0])).not.toBe(targetFunctionId(targets[1]));
+      expect(JSON.stringify(targets[0])).toContain('First subject');
+      expect(JSON.stringify(targets[0])).not.toContain('Second subject');
+      expect(JSON.stringify(targets[1])).toContain('Second subject');
+      expect(JSON.stringify(targets[1])).not.toContain('First subject');
+    },
+  },
+  {
+    name: 'reused subject',
+    lambdaCount: 1,
+    arrange: ({ topic, rule }) => {
+      rule.addTarget(new EventBridgeEmailNotifier(topic, {
+        subject: 'Same subject',
+        message: events.RuleTargetInput.fromText('one'),
+      }));
+      rule.addTarget(new EventBridgeEmailNotifier(topic, {
+        subject: 'Same subject',
+        message: events.RuleTargetInput.fromText('two'),
+      }));
+    },
+    assert: (template) => {
+      const targets = ruleTargets(template);
+      expect(targets).toHaveLength(2);
+      expect(targetFunctionId(targets[0])).toBe(targetFunctionId(targets[1]));
+      expect(JSON.stringify(targets[0])).toContain('one');
+      expect(JSON.stringify(targets[1])).toContain('two');
+    },
+  },
+];
+
+describe('representative synthesized templates', () => {
+  test.each(snapshotCases)('$name', ({ name, lambdaCount, arrange, assert }) => {
+    const scope = createStackWithRule();
+    arrange(scope);
+    const template = Template.fromStack(scope.stack);
+    expectPublisherWiring(template, lambdaCount);
+    assert(template);
+    expect(template.toJSON()).toMatchSnapshot(name);
   });
 });
