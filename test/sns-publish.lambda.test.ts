@@ -1,7 +1,7 @@
 import { PublishCommand, SNSClient } from '@aws-sdk/client-sns';
 import { mockClient } from 'aws-sdk-client-mock';
 import 'aws-sdk-client-mock-jest';
-import { handler, toSnsMessage } from '../src/funcs/sns-publish.lambda';
+import { handler, toSnsMessage } from '../src/funcs/sns-publish.singleton-lambda';
 import {
   PUBLISH_MESSAGE_FIELD,
   PUBLISH_SUBJECT_FIELD,

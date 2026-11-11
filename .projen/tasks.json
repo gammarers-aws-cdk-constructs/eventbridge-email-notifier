@@ -73,22 +73,22 @@
       "description": "Prepare assets",
       "steps": [
         {
-          "spawn": "bundle:funcs/sns-publish.lambda"
+          "spawn": "bundle:funcs/sns-publish.singleton-lambda"
         }
       ]
     },
-    "bundle:funcs/sns-publish.lambda": {
-      "name": "bundle:funcs/sns-publish.lambda",
-      "description": "Create a JavaScript bundle from src/funcs/sns-publish.lambda.ts",
+    "bundle:funcs/sns-publish.singleton-lambda": {
+      "name": "bundle:funcs/sns-publish.singleton-lambda",
+      "description": "Create a JavaScript bundle from src/funcs/sns-publish.singleton-lambda.ts",
       "steps": [
         {
           "execArgs": [
             "esbuild",
             "--bundle",
-            "src/funcs/sns-publish.lambda.ts",
+            "src/funcs/sns-publish.singleton-lambda.ts",
             "--target=node24",
             "--platform=node",
-            "--outfile=assets/funcs/sns-publish.lambda/index.js",
+            "--outfile=assets/funcs/sns-publish.singleton-lambda/index.js",
             "--packages=bundle",
             "--tsconfig=test/tsconfig.json",
             "--external:@aws-sdk/*",
@@ -97,18 +97,18 @@
         }
       ]
     },
-    "bundle:funcs/sns-publish.lambda:watch": {
-      "name": "bundle:funcs/sns-publish.lambda:watch",
-      "description": "Continuously update the JavaScript bundle from src/funcs/sns-publish.lambda.ts",
+    "bundle:funcs/sns-publish.singleton-lambda:watch": {
+      "name": "bundle:funcs/sns-publish.singleton-lambda:watch",
+      "description": "Continuously update the JavaScript bundle from src/funcs/sns-publish.singleton-lambda.ts",
       "steps": [
         {
           "execArgs": [
             "esbuild",
             "--bundle",
-            "src/funcs/sns-publish.lambda.ts",
+            "src/funcs/sns-publish.singleton-lambda.ts",
             "--target=node24",
             "--platform=node",
-            "--outfile=assets/funcs/sns-publish.lambda/index.js",
+            "--outfile=assets/funcs/sns-publish.singleton-lambda/index.js",
             "--packages=bundle",
             "--tsconfig=test/tsconfig.json",
             "--external:@aws-sdk/*",

@@ -159,7 +159,7 @@
         "devDependencies": [
           "**/test/**",
           "**/build-tools/**",
-          "src/funcs/sns-publish.lambda.ts",
+          "src/funcs/sns-publish.singleton-lambda.ts",
           ".projenrc.ts",
           "projenrc/**/*.ts"
         ],

@@ -361,7 +361,7 @@ describe('EventBridgeEmailNotifier', () => {
     expectPublisherWiring(template, 1);
     expect(publishStatementCount(template)).toBe(1);
     expect(Object.keys(template.findResources('AWS::Lambda::Function'))[0])
-      .toContain('EventBridgeEmailNotifierFunction');
+      .toContain('EventBridgeEmailNotifier');
 
     const targets = ruleTargets(template);
     expect(targets).toHaveLength(2);
@@ -504,15 +504,6 @@ describe('EventBridgeEmailNotifier', () => {
 
     Template.fromStack(left).resourceCountIs('AWS::Lambda::Function', 1);
     Template.fromStack(right).resourceCountIs('AWS::Lambda::Function', 1);
-  });
-
-  test('rejects a stack that already uses the publisher construct id', () => {
-    const { stack, topic, rule } = createStackWithRule();
-    new sns.Topic(stack, 'EventBridgeEmailNotifierFunction');
-
-    expect(() => {
-      new EventBridgeEmailNotifier(topic, { subject: 'Busy' }).bind(rule);
-    }).toThrow(/EventBridgeEmailNotifierFunction/);
   });
 
   test('configures EventBridge target DLQ and retry policy', () => {

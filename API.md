@@ -124,8 +124,9 @@ The Lambda event is `{ topicArn, subject, message }` built with an input
 transformer. Static subjects are checked at synthesis. Subjects taken from
 the event are checked on each invocation.
 
-One publisher Lambda is created per stack. Every target in that stack
-invokes it, and the target input carries that target's topic and subject.
+CDK keeps one publisher Lambda per stack for this publisher's uuid.
+Every target in that stack invokes it, and the target input carries
+that target's topic and subject.
 
 Email subscriptions are not created here; manage them in the console or API.
 This target does not change the topic resource policy.
@@ -188,9 +189,9 @@ public bind(rule: IRuleRef, _id?: string): RuleTargetConfig
 Bind this notifier as an EventBridge rule target (Lambda → SNS Publish).
 
 The target input is an object with `topicArn`, `subject`, and `message`.
-The publisher Lambda is a single function on the stack. The EventBridge
-target `id` is accepted for {@link events.IRuleTarget} compatibility and
-is not used to identify the function.
+The publisher Lambda is a CDK singleton function, shared per stack by a
+fixed uuid. The EventBridge target `id` is accepted for
+{@link events.IRuleTarget} compatibility and is not used to identify the function.
 
 ###### `rule`<sup>Required</sup> <a name="rule" id="eventbridge-email-notifier.EventBridgeEmailNotifier.bind.parameter.rule"></a>
 

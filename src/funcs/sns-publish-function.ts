@@ -7,19 +7,22 @@ import { Construct } from 'constructs';
  * Props for SnsPublishFunction
  */
 export interface SnsPublishFunctionProps extends lambda.FunctionOptions {
+  /** A descriptive name for the purpose of this Lambda. */
+  readonly lambdaPurpose?: string;
 }
 
 /**
  * An AWS Lambda function which executes src/funcs/sns-publish.
  */
-export class SnsPublishFunction extends lambda.Function {
+export class SnsPublishFunction extends lambda.SingletonFunction {
   constructor(scope: Construct, id: string, props?: SnsPublishFunctionProps) {
     super(scope, id, {
-      description: 'src/funcs/sns-publish.lambda.ts',
+      description: 'src/funcs/sns-publish.singleton-lambda.ts',
       ...props,
+      uuid: "acea0f6d179e9bd659af09d0b46b5f05",
       runtime: new lambda.Runtime('nodejs24.x', lambda.RuntimeFamily.NODEJS, { supportsInlineCode: true }),
       handler: 'index.handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../assets/funcs/sns-publish.lambda')),
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../assets/funcs/sns-publish.singleton-lambda')),
     });
     this.addEnvironment('AWS_NODEJS_CONNECTION_REUSE_ENABLED', '1', { removeInEdge: true });
   }

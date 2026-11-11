@@ -4,7 +4,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import type * as sns from 'aws-cdk-lib/aws-sns';
 import type * as sqs from 'aws-cdk-lib/aws-sqs';
-import { Construct } from 'constructs';
+import { Construct, type Node } from 'constructs';
 import { SnsPublishFunction } from './funcs/sns-publish-function';
 import {
   PUBLISH_MESSAGE_FIELD,
@@ -14,7 +14,7 @@ import {
   SNS_SUBJECT_MAX_LENGTH,
 } from './settings/consts';
 
-const PUBLISHER_FUNCTION_ID = 'EventBridgeEmailNotifierFunction';
+const PUBLISHER_LAMBDA_PURPOSE = 'EventBridgeEmailNotifier';
 
 /**
  * EventBridge predefined variable for the full event JSON.
@@ -105,8 +105,9 @@ export const sanitizeSnsSubject = (subject: string): string => {
  * transformer. Static subjects are checked at synthesis. Subjects taken from
  * the event are checked on each invocation.
  *
- * One publisher Lambda is created per stack. Every target in that stack
- * invokes it, and the target input carries that target's topic and subject.
+ * CDK keeps one publisher Lambda per stack for this publisher's uuid.
+ * Every target in that stack invokes it, and the target input carries
+ * that target's topic and subject.
  *
  * Email subscriptions are not created here; manage them in the console or API.
  * This target does not change the topic resource policy.
@@ -136,9 +137,9 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
    * Bind this notifier as an EventBridge rule target (Lambda → SNS Publish).
    *
    * The target input is an object with `topicArn`, `subject`, and `message`.
-   * The publisher Lambda is a single function on the stack. The EventBridge
-   * target `id` is accepted for {@link events.IRuleTarget} compatibility and
-   * is not used to identify the function.
+   * The publisher Lambda is a CDK singleton function, shared per stack by a
+   * fixed uuid. The EventBridge target `id` is accepted for
+   * {@link events.IRuleTarget} compatibility and is not used to identify the function.
    *
    * @param rule - Rule that will invoke the publisher Lambda
    * @param _id - EventBridge target id from the rule (unused for construct ids)
@@ -147,7 +148,6 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
    * @throws Error when the subject or message is not text, an event path, or an object input
    * @throws Error when the subject and message reuse an input path key for different paths
    * @throws Error when `deadLetterQueue` is in a different region from the rule
-   * @throws Error when this stack already has a construct named `EventBridgeEmailNotifierFunction`
    */
   public bind(rule: events.IRuleRef, _id?: string): events.RuleTargetConfig {
     const subject = resolveSubject(rule, this.topic, this.props.subject);
@@ -513,35 +513,34 @@ const resolutionStack = (rule: events.IRuleRef, topic: sns.ITopic): Stack => {
   return Stack.of(topic);
 };
 
-const grantedTopicArns = new WeakMap<lambda.IFunction, Set<string>>();
+const grantedTopicArns = new WeakMap<Node, Set<string>>();
+const publisherDeclarations = new WeakMap<Construct, number>();
 
 /**
- * One publisher for the stack. Topic and subject travel in each target input.
+ * Declare the stack publisher. The generated class hardcodes a uuid, and CDK
+ * keeps one function per stack for that uuid. Each declaration still needs its
+ * own construct id; that wrapper does not create a resource.
  */
-const publisherFunction = (stack: Stack): lambda.Function => {
-  const existing = stack.node.tryFindChild(PUBLISHER_FUNCTION_ID);
-  if (existing instanceof SnsPublishFunction) {
-    return existing;
-  }
-
-  if (existing !== undefined) {
-    throw new Error(
-      `Cannot create the EventBridge email publisher: "${PUBLISHER_FUNCTION_ID}" already exists on this stack`,
-    );
-  }
-
-  return new SnsPublishFunction(stack, PUBLISHER_FUNCTION_ID, {
+const publisherFunction = (stack: Stack): lambda.IFunction => {
+  return new SnsPublishFunction(stack, publisherDeclarationId(stack), {
     description: 'Publish EventBridge events to SNS with a custom email subject',
+    lambdaPurpose: PUBLISHER_LAMBDA_PURPOSE,
     timeout: Duration.seconds(PUBLISHER_TIMEOUT_SECONDS),
   });
+};
+
+const publisherDeclarationId = (scope: Construct): string => {
+  const count = publisherDeclarations.get(scope) ?? 0;
+  publisherDeclarations.set(scope, count + 1);
+  return `Publisher${count}`;
 };
 
 /**
  * Grant sns:Publish once per topic. The singleton role accumulates one statement per topic.
  */
 const grantTopicPublish = (handler: lambda.IFunction, topic: sns.ITopic): void => {
-  const granted = grantedTopicArns.get(handler) ?? new Set<string>();
-  grantedTopicArns.set(handler, granted);
+  const granted = grantedTopicArns.get(handler.permissionsNode) ?? new Set<string>();
+  grantedTopicArns.set(handler.permissionsNode, granted);
   if (granted.has(topic.topicArn)) {
     return;
   }
@@ -564,7 +563,7 @@ const addLambdaInvokePermission = (
   if (rule instanceof Construct) {
     scope = rule;
     node = rule.node;
-    permissionId = `AllowEventRule${Names.nodeUniqueId(handler.node)}`;
+    permissionId = `AllowEventRule${Names.nodeUniqueId(handler.permissionsNode)}`;
   }
 
   if (node.tryFindChild(permissionId) !== undefined) {

@@ -54,17 +54,17 @@ exports[`representative synthesized templates dead-letter queue and retry: dead-
       },
       "Type": "AWS::SQS::QueuePolicy",
     },
-    "EventBridgeEmailNotifierFunction6062B05F": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18": {
       "DependsOn": [
-        "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9",
-        "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+        "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2",
+        "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
       ],
       "Properties": {
         "Code": {
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "470415f8fcd4604c891e8f9f2536396eaf63a97846092e02f1307ebb10e0e56c.zip",
+          "S3Key": "04b12f6ead7ce5b8d31a46fa48b50b2d3aef9d2246bd7826269a5bc71c8f9c3f.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -75,7 +75,7 @@ exports[`representative synthesized templates dead-letter queue and retry: dead-
         "Handler": "index.handler",
         "Role": {
           "Fn::GetAtt": [
-            "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+            "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
             "Arn",
           ],
         },
@@ -84,7 +84,7 @@ exports[`representative synthesized templates dead-letter queue and retry: dead-
       },
       "Type": "AWS::Lambda::Function",
     },
-    "EventBridgeEmailNotifierFunctionServiceRole24E94B42": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E": {
       "Properties": {
         "AssumeRolePolicyDocument": {
           "Statement": [
@@ -115,7 +115,7 @@ exports[`representative synthesized templates dead-letter queue and retry: dead-
       },
       "Type": "AWS::IAM::Role",
     },
-    "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2": {
       "Properties": {
         "PolicyDocument": {
           "Statement": [
@@ -129,10 +129,10 @@ exports[`representative synthesized templates dead-letter queue and retry: dead-
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9",
+        "PolicyName": "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2",
         "Roles": [
           {
-            "Ref": "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+            "Ref": "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
           },
         ],
       },
@@ -150,7 +150,7 @@ exports[`representative synthesized templates dead-letter queue and retry: dead-
           {
             "Arn": {
               "Fn::GetAtt": [
-                "EventBridgeEmailNotifierFunction6062B05F",
+                "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
                 "Arn",
               ],
             },
@@ -186,12 +186,12 @@ exports[`representative synthesized templates dead-letter queue and retry: dead-
       },
       "Type": "AWS::Events::Rule",
     },
-    "RuleAllowEventRuleTestStackEventBridgeEmailNotifierFunction53B5FD977D292F2F": {
+    "RuleAllowEventRuleTestStackEventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f0561923ACC0ABF183E": {
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
           "Fn::GetAtt": [
-            "EventBridgeEmailNotifierFunction6062B05F",
+            "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
             "Arn",
           ],
         },
@@ -249,17 +249,17 @@ exports[`representative synthesized templates distinct subjects: distinct subjec
     },
   },
   "Resources": {
-    "EventBridgeEmailNotifierFunction6062B05F": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18": {
       "DependsOn": [
-        "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9",
-        "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+        "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2",
+        "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
       ],
       "Properties": {
         "Code": {
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "470415f8fcd4604c891e8f9f2536396eaf63a97846092e02f1307ebb10e0e56c.zip",
+          "S3Key": "04b12f6ead7ce5b8d31a46fa48b50b2d3aef9d2246bd7826269a5bc71c8f9c3f.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -270,7 +270,7 @@ exports[`representative synthesized templates distinct subjects: distinct subjec
         "Handler": "index.handler",
         "Role": {
           "Fn::GetAtt": [
-            "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+            "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
             "Arn",
           ],
         },
@@ -279,7 +279,7 @@ exports[`representative synthesized templates distinct subjects: distinct subjec
       },
       "Type": "AWS::Lambda::Function",
     },
-    "EventBridgeEmailNotifierFunctionServiceRole24E94B42": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E": {
       "Properties": {
         "AssumeRolePolicyDocument": {
           "Statement": [
@@ -310,7 +310,7 @@ exports[`representative synthesized templates distinct subjects: distinct subjec
       },
       "Type": "AWS::IAM::Role",
     },
-    "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2": {
       "Properties": {
         "PolicyDocument": {
           "Statement": [
@@ -324,10 +324,10 @@ exports[`representative synthesized templates distinct subjects: distinct subjec
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9",
+        "PolicyName": "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2",
         "Roles": [
           {
-            "Ref": "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+            "Ref": "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
           },
         ],
       },
@@ -345,7 +345,7 @@ exports[`representative synthesized templates distinct subjects: distinct subjec
           {
             "Arn": {
               "Fn::GetAtt": [
-                "EventBridgeEmailNotifierFunction6062B05F",
+                "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
                 "Arn",
               ],
             },
@@ -366,7 +366,7 @@ exports[`representative synthesized templates distinct subjects: distinct subjec
           {
             "Arn": {
               "Fn::GetAtt": [
-                "EventBridgeEmailNotifierFunction6062B05F",
+                "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
                 "Arn",
               ],
             },
@@ -388,12 +388,12 @@ exports[`representative synthesized templates distinct subjects: distinct subjec
       },
       "Type": "AWS::Events::Rule",
     },
-    "RuleAllowEventRuleTestStackEventBridgeEmailNotifierFunction53B5FD977D292F2F": {
+    "RuleAllowEventRuleTestStackEventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f0561923ACC0ABF183E": {
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
           "Fn::GetAtt": [
-            "EventBridgeEmailNotifierFunction6062B05F",
+            "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
             "Arn",
           ],
         },
@@ -451,17 +451,17 @@ exports[`representative synthesized templates event path subject: event path sub
     },
   },
   "Resources": {
-    "EventBridgeEmailNotifierFunction6062B05F": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18": {
       "DependsOn": [
-        "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9",
-        "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+        "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2",
+        "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
       ],
       "Properties": {
         "Code": {
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "470415f8fcd4604c891e8f9f2536396eaf63a97846092e02f1307ebb10e0e56c.zip",
+          "S3Key": "04b12f6ead7ce5b8d31a46fa48b50b2d3aef9d2246bd7826269a5bc71c8f9c3f.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -472,7 +472,7 @@ exports[`representative synthesized templates event path subject: event path sub
         "Handler": "index.handler",
         "Role": {
           "Fn::GetAtt": [
-            "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+            "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
             "Arn",
           ],
         },
@@ -481,7 +481,7 @@ exports[`representative synthesized templates event path subject: event path sub
       },
       "Type": "AWS::Lambda::Function",
     },
-    "EventBridgeEmailNotifierFunctionServiceRole24E94B42": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E": {
       "Properties": {
         "AssumeRolePolicyDocument": {
           "Statement": [
@@ -512,7 +512,7 @@ exports[`representative synthesized templates event path subject: event path sub
       },
       "Type": "AWS::IAM::Role",
     },
-    "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2": {
       "Properties": {
         "PolicyDocument": {
           "Statement": [
@@ -526,10 +526,10 @@ exports[`representative synthesized templates event path subject: event path sub
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9",
+        "PolicyName": "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2",
         "Roles": [
           {
-            "Ref": "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+            "Ref": "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
           },
         ],
       },
@@ -547,7 +547,7 @@ exports[`representative synthesized templates event path subject: event path sub
           {
             "Arn": {
               "Fn::GetAtt": [
-                "EventBridgeEmailNotifierFunction6062B05F",
+                "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
                 "Arn",
               ],
             },
@@ -574,12 +574,12 @@ exports[`representative synthesized templates event path subject: event path sub
       },
       "Type": "AWS::Events::Rule",
     },
-    "RuleAllowEventRuleTestStackEventBridgeEmailNotifierFunction53B5FD977D292F2F": {
+    "RuleAllowEventRuleTestStackEventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f0561923ACC0ABF183E": {
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
           "Fn::GetAtt": [
-            "EventBridgeEmailNotifierFunction6062B05F",
+            "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
             "Arn",
           ],
         },
@@ -637,17 +637,17 @@ exports[`representative synthesized templates reused subject: reused subject 1`]
     },
   },
   "Resources": {
-    "EventBridgeEmailNotifierFunction6062B05F": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18": {
       "DependsOn": [
-        "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9",
-        "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+        "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2",
+        "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
       ],
       "Properties": {
         "Code": {
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "470415f8fcd4604c891e8f9f2536396eaf63a97846092e02f1307ebb10e0e56c.zip",
+          "S3Key": "04b12f6ead7ce5b8d31a46fa48b50b2d3aef9d2246bd7826269a5bc71c8f9c3f.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -658,7 +658,7 @@ exports[`representative synthesized templates reused subject: reused subject 1`]
         "Handler": "index.handler",
         "Role": {
           "Fn::GetAtt": [
-            "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+            "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
             "Arn",
           ],
         },
@@ -667,7 +667,7 @@ exports[`representative synthesized templates reused subject: reused subject 1`]
       },
       "Type": "AWS::Lambda::Function",
     },
-    "EventBridgeEmailNotifierFunctionServiceRole24E94B42": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E": {
       "Properties": {
         "AssumeRolePolicyDocument": {
           "Statement": [
@@ -698,7 +698,7 @@ exports[`representative synthesized templates reused subject: reused subject 1`]
       },
       "Type": "AWS::IAM::Role",
     },
-    "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2": {
       "Properties": {
         "PolicyDocument": {
           "Statement": [
@@ -712,10 +712,10 @@ exports[`representative synthesized templates reused subject: reused subject 1`]
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9",
+        "PolicyName": "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2",
         "Roles": [
           {
-            "Ref": "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+            "Ref": "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
           },
         ],
       },
@@ -733,7 +733,7 @@ exports[`representative synthesized templates reused subject: reused subject 1`]
           {
             "Arn": {
               "Fn::GetAtt": [
-                "EventBridgeEmailNotifierFunction6062B05F",
+                "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
                 "Arn",
               ],
             },
@@ -754,7 +754,7 @@ exports[`representative synthesized templates reused subject: reused subject 1`]
           {
             "Arn": {
               "Fn::GetAtt": [
-                "EventBridgeEmailNotifierFunction6062B05F",
+                "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
                 "Arn",
               ],
             },
@@ -776,12 +776,12 @@ exports[`representative synthesized templates reused subject: reused subject 1`]
       },
       "Type": "AWS::Events::Rule",
     },
-    "RuleAllowEventRuleTestStackEventBridgeEmailNotifierFunction53B5FD977D292F2F": {
+    "RuleAllowEventRuleTestStackEventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f0561923ACC0ABF183E": {
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
           "Fn::GetAtt": [
-            "EventBridgeEmailNotifierFunction6062B05F",
+            "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
             "Arn",
           ],
         },
@@ -839,17 +839,17 @@ exports[`representative synthesized templates static subject: static subject 1`]
     },
   },
   "Resources": {
-    "EventBridgeEmailNotifierFunction6062B05F": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18": {
       "DependsOn": [
-        "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9",
-        "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+        "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2",
+        "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
       ],
       "Properties": {
         "Code": {
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "470415f8fcd4604c891e8f9f2536396eaf63a97846092e02f1307ebb10e0e56c.zip",
+          "S3Key": "04b12f6ead7ce5b8d31a46fa48b50b2d3aef9d2246bd7826269a5bc71c8f9c3f.zip",
         },
         "Description": "Publish EventBridge events to SNS with a custom email subject",
         "Environment": {
@@ -860,7 +860,7 @@ exports[`representative synthesized templates static subject: static subject 1`]
         "Handler": "index.handler",
         "Role": {
           "Fn::GetAtt": [
-            "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+            "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
             "Arn",
           ],
         },
@@ -869,7 +869,7 @@ exports[`representative synthesized templates static subject: static subject 1`]
       },
       "Type": "AWS::Lambda::Function",
     },
-    "EventBridgeEmailNotifierFunctionServiceRole24E94B42": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E": {
       "Properties": {
         "AssumeRolePolicyDocument": {
           "Statement": [
@@ -900,7 +900,7 @@ exports[`representative synthesized templates static subject: static subject 1`]
       },
       "Type": "AWS::IAM::Role",
     },
-    "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9": {
+    "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2": {
       "Properties": {
         "PolicyDocument": {
           "Statement": [
@@ -914,10 +914,10 @@ exports[`representative synthesized templates static subject: static subject 1`]
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "EventBridgeEmailNotifierFunctionServiceRoleDefaultPolicyB022D1E9",
+        "PolicyName": "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleDefaultPolicy982F75A2",
         "Roles": [
           {
-            "Ref": "EventBridgeEmailNotifierFunctionServiceRole24E94B42",
+            "Ref": "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05ServiceRoleCF119B0E",
           },
         ],
       },
@@ -935,7 +935,7 @@ exports[`representative synthesized templates static subject: static subject 1`]
           {
             "Arn": {
               "Fn::GetAtt": [
-                "EventBridgeEmailNotifierFunction6062B05F",
+                "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
                 "Arn",
               ],
             },
@@ -957,12 +957,12 @@ exports[`representative synthesized templates static subject: static subject 1`]
       },
       "Type": "AWS::Events::Rule",
     },
-    "RuleAllowEventRuleTestStackEventBridgeEmailNotifierFunction53B5FD977D292F2F": {
+    "RuleAllowEventRuleTestStackEventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f0561923ACC0ABF183E": {
       "Properties": {
         "Action": "lambda:InvokeFunction",
         "FunctionName": {
           "Fn::GetAtt": [
-            "EventBridgeEmailNotifierFunction6062B05F",
+            "EventBridgeEmailNotifieracea0f6d179e9bd659af09d0b46b5f05E4CECD18",
             "Arn",
           ],
         },
