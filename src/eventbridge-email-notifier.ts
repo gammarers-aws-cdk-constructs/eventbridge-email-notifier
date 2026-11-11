@@ -57,6 +57,10 @@ export interface EventBridgeEmailNotifierProps {
   /**
    * SQS queue used as the EventBridge target dead-letter queue.
    *
+   * The queue must be in the same region as the rule. In the same account,
+   * EventBridge is granted `sqs:SendMessage` on that queue. A queue in another
+   * account needs that permission on the queue policy.
+   *
    * @default - no dead-letter queue
    */
   readonly deadLetterQueue?: sqs.IQueue;
@@ -139,7 +143,11 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
    * @param rule - Rule that will invoke the publisher Lambda
    * @param _id - EventBridge target id from the rule (unused for construct ids)
    * @returns Rule target configuration including retry / DLQ settings
-   * @throws Error when a static `RuleTargetInput` subject is empty after sanitization
+   * @throws Error when a static subject is empty after sanitization
+   * @throws Error when the subject or message is not text, an event path, or an object input
+   * @throws Error when the subject and message reuse an input path key for different paths
+   * @throws Error when `deadLetterQueue` is in a different region from the rule
+   * @throws Error when this stack already has a construct named `EventBridgeEmailNotifierFunction`
    */
   public bind(rule: events.IRuleRef, _id?: string): events.RuleTargetConfig {
     const subject = resolveSubject(rule, this.topic, this.props.subject);
@@ -355,6 +363,9 @@ const bindPublisherInput = (
   };
 };
 
+/**
+ * Turn one subject or message input into a JSON fragment and its path map.
+ */
 const bindInputFragment = (
   rule: events.IRuleRef,
   stack: Stack,
@@ -442,6 +453,9 @@ const fragmentNeedsTemplate = (fragment: InputFragment): boolean => {
   return fragment.json.includes('<');
 };
 
+/**
+ * Combine path maps. The same key is allowed only when both sides name the same path.
+ */
 const mergePathMaps = (
   subjectPaths: { [key: string]: string },
   messagePaths: { [key: string]: string },
@@ -479,6 +493,7 @@ const materializeInput = (stack: Stack, value: string | undefined): string | und
   return resolved;
 };
 
+/** Parsed JSON, or undefined when the text is not JSON. */
 const parseJsonValue = (json: string): unknown => {
   try {
     return JSON.parse(json);
@@ -487,6 +502,9 @@ const parseJsonValue = (json: string): unknown => {
   }
 };
 
+/**
+ * Stack that owns the publisher. Use the rule's stack when the rule is a construct.
+ */
 const resolutionStack = (rule: events.IRuleRef, topic: sns.ITopic): Stack => {
   if (Construct.isConstruct(rule)) {
     return Stack.of(rule);
@@ -615,6 +633,9 @@ const bindRetryAndDlqConfig = (
   };
 };
 
+/**
+ * True when both values match, or either side is still a token.
+ */
 const sameEnvDimension = (dim1: string, dim2: string): boolean => {
   const comparison = Token.compareStrings(dim1, dim2);
   return comparison === TokenComparison.SAME

@@ -60,6 +60,10 @@ public readonly deadLetterQueue: IQueue;
 
 SQS queue used as the EventBridge target dead-letter queue.
 
+The queue must be in the same region as the rule. In the same account,
+EventBridge is granted `sqs:SendMessage` on that queue. A queue in another
+account needs that permission on the queue policy.
+
 ---
 
 ##### `maxEventAge`<sup>Optional</sup> <a name="maxEventAge" id="eventbridge-email-notifier.EventBridgeEmailNotifierProps.property.maxEventAge"></a>

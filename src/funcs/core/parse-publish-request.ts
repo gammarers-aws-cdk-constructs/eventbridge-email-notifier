@@ -25,7 +25,7 @@ const isRecord = (event: unknown): event is Record<string, unknown> => {
  *
  * @param event - Lambda event
  * @returns Topic, subject, and message body
- * @throws Error when `topicArn`, `subject`, or `message` is missing or the wrong type
+ * @throws Error when `topicArn` is missing, empty, or not a string, `subject` is not a string, or `message` is missing
  */
 export const parsePublishRequest = (event: unknown): PublishRequest => {
   if (!isRecord(event)) {

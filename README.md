@@ -20,7 +20,7 @@ The subject can be a fixed string or a value taken from the event, such as a pip
 
 ## How it works
 
-EventBridge invokes a small Lambda publisher with an input object of `topicArn`, `subject`, and `message`. The Lambda removes control characters from the subject, truncates it to 99 characters, and calls SNS `Publish` with that subject and message. A string subject is checked when the stack is synthesized. A subject taken from the event is checked on each invocation, and an empty result fails that invocation.
+EventBridge invokes a small Lambda publisher with an input object of `topicArn`, `subject`, and `message`. The Lambda removes control characters from the subject, truncates it to 99 characters, and calls SNS `Publish` with that subject and message. A string or other static text subject is checked when the stack is synthesized. A subject taken from the event is checked on each invocation, and an empty result fails that invocation. The subject that reaches the Lambda must be a string. An object subject fails that invocation. String messages are published as-is. Other message values are JSON.
 
 Each stack has one publisher Lambda, named `EventBridgeEmailNotifierFunction`. Every notifier target in that stack invokes it. The target input carries that target's topic, subject, and message, so different subjects and topics still share the function. Email subscriptions are not created by this library, and the topic resource policy is not modified—add subscriptions in the console or API when addresses change.
 
@@ -110,9 +110,9 @@ rule.addTarget(new EventBridgeEmailNotifier(topic, {
 
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
-| `subject` | `string \| events.RuleTargetInput` | _(required)_ | SNS email subject. A string or `RuleTargetInput.fromText` is sanitized at synthesis. `EventField.fromPath` and `RuleTargetInput.fromEventPath` are sanitized when the Lambda runs |
-| `message` | `events.RuleTargetInput` | entire EventBridge event | Payload published as the SNS message body |
-| `deadLetterQueue` | `sqs.IQueue` | none | EventBridge target DLQ |
+| `subject` | `string \| events.RuleTargetInput` | _(required)_ | SNS email subject. A string or `RuleTargetInput.fromText` is sanitized at synthesis. An event path is sanitized when the Lambda runs. An object subject fails that invocation |
+| `message` | `events.RuleTargetInput` | entire EventBridge event | SNS message body. Strings are published as-is. Other values are JSON |
+| `deadLetterQueue` | `sqs.IQueue` | none | EventBridge target DLQ in the same region as the rule |
 | `retryAttempts` | `number` | `185` | EventBridge retry attempts |
 | `maxEventAge` | `Duration` | `24 hours` | Maximum event age for retries |
 
@@ -130,6 +130,7 @@ See [API.md](API.md).
 
 - A subject taken from the event is inserted by the EventBridge input transformer. EventBridge does not escape quotes or control characters in that value. If the target input is no longer valid JSON, the Lambda is not invoked and cannot trim the subject.
 - The publisher role can call `sns:Publish` on every topic passed to this construct in the same stack. A second topic adds another publish statement on that same role.
+- A dead-letter queue in the same account receives `sqs:SendMessage` for this rule. A queue in another account does not, so that permission stays on the queue policy. The queue and the rule must be in the same region.
 
 ## Troubleshooting
 
