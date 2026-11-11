@@ -120,9 +120,8 @@ The Lambda event is `{ topicArn, subject, message }` built with an input
 transformer. Static subjects are checked at synthesis. Subjects taken from
 the event are checked on each invocation.
 
-On a given rule, publisher Lambdas are keyed by topic ARN and subject
-specification (sanitized text or event path). Identical specifications reuse
-one function; different specifications never share.
+One publisher Lambda is created per stack. Every target in that stack
+invokes it, and the target input carries that target's topic and subject.
 
 Email subscriptions are not created here; manage them in the console or API.
 This target does not change the topic resource policy.
@@ -185,10 +184,9 @@ public bind(rule: IRuleRef, _id?: string): RuleTargetConfig
 Bind this notifier as an EventBridge rule target (Lambda → SNS Publish).
 
 The target input is an object with `topicArn`, `subject`, and `message`.
-Publisher construct ids are derived from the topic ARN and the subject
-specification so targets on the same rule do not share a Lambda across
-different subjects or topics. The EventBridge target `id` is accepted for
-{@link events.IRuleTarget} compatibility and is not used for the construct id.
+The publisher Lambda is a single function on the stack. The EventBridge
+target `id` is accepted for {@link events.IRuleTarget} compatibility and
+is not used to identify the function.
 
 ###### `rule`<sup>Required</sup> <a name="rule" id="eventbridge-email-notifier.EventBridgeEmailNotifier.bind.parameter.rule"></a>
 

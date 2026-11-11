@@ -22,7 +22,7 @@ The subject can be a fixed string or a value taken from the event, such as a pip
 
 EventBridge invokes a small Lambda publisher with an input object of `topicArn`, `subject`, and `message`. The Lambda removes control characters from the subject, truncates it to 99 characters, and calls SNS `Publish` with that subject and message. A string subject is checked when the stack is synthesized. A subject taken from the event is checked on each invocation, and an empty result fails that invocation.
 
-On the same rule, targets that share a topic and the same subject specification reuse one publisher Lambda. The specification is the sanitized text or the event path. Different specifications or topics get separate functions. Email subscriptions are not created by this library, and the topic resource policy is not modified—add subscriptions in the console or API when addresses change.
+Each stack has one publisher Lambda, named `EventBridgeEmailNotifierFunction`. Every notifier target in that stack invokes it. The target input carries that target's topic, subject, and message, so different subjects and topics still share the function. Email subscriptions are not created by this library, and the topic resource policy is not modified—add subscriptions in the console or API when addresses change.
 
 The publisher Lambda timeout is 30 seconds and is not configurable via props today. SNS client retries use the SDK attempt budget (`maxAttempts` 3).
 
@@ -129,6 +129,7 @@ See [API.md](API.md).
 ## Notes
 
 - A subject taken from the event is inserted by the EventBridge input transformer. EventBridge does not escape quotes or control characters in that value. If the target input is no longer valid JSON, the Lambda is not invoked and cannot trim the subject.
+- The publisher role can call `sns:Publish` on every topic passed to this construct in the same stack. A second topic adds another publish statement on that same role.
 
 ## Troubleshooting
 

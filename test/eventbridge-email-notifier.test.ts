@@ -78,6 +78,35 @@ const ruleTargets = (template: Template): Record<string, unknown>[] => {
   return targets;
 };
 
+const publishStatementCount = (template: Template): number => {
+  let count = 0;
+
+  for (const resource of Object.values(template.findResources('AWS::IAM::Policy'))) {
+    const properties: unknown = resource.Properties;
+    if (!isRecord(properties) || !isRecord(properties.PolicyDocument)) {
+      continue;
+    }
+
+    const statements: unknown = properties.PolicyDocument.Statement;
+    if (!Array.isArray(statements)) {
+      continue;
+    }
+
+    for (const statement of statements) {
+      if (!isRecord(statement)) {
+        continue;
+      }
+
+      const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+      if (actions.includes('sns:Publish')) {
+        count += 1;
+      }
+    }
+  }
+
+  return count;
+};
+
 const targetFunctionId = (target: Record<string, unknown>): string => {
   const arn = target.Arn;
   if (!isRecord(arn) || !Array.isArray(arn['Fn::GetAtt'])) {
@@ -285,7 +314,7 @@ describe('EventBridgeEmailNotifier', () => {
     }).toThrow(/event path/);
   });
 
-  test('creates distinct Lambdas for different subjects on the same rule', () => {
+  test('uses one Lambda for different subjects on the same rule', () => {
     const { stack, topic, rule } = createStackWithRule();
 
     rule.addTarget(new EventBridgeEmailNotifier(topic, {
@@ -298,11 +327,14 @@ describe('EventBridgeEmailNotifier', () => {
     }));
 
     const template = Template.fromStack(stack);
-    expectPublisherWiring(template, 2);
+    expectPublisherWiring(template, 1);
+    expect(publishStatementCount(template)).toBe(1);
+    expect(Object.keys(template.findResources('AWS::Lambda::Function'))[0])
+      .toContain('EventBridgeEmailNotifierFunction');
 
     const targets = ruleTargets(template);
     expect(targets).toHaveLength(2);
-    expect(targetFunctionId(targets[0])).not.toBe(targetFunctionId(targets[1]));
+    expect(targetFunctionId(targets[0])).toBe(targetFunctionId(targets[1]));
 
     const first = JSON.stringify(targets[0]);
     const second = JSON.stringify(targets[1]);
@@ -328,6 +360,7 @@ describe('EventBridgeEmailNotifier', () => {
 
     const template = Template.fromStack(stack);
     expectPublisherWiring(template, 1);
+    expect(publishStatementCount(template)).toBe(1);
 
     const targets = ruleTargets(template);
     expect(targets).toHaveLength(2);
@@ -364,7 +397,7 @@ describe('EventBridgeEmailNotifier', () => {
     expect(JSON.stringify(targets[1])).toContain('two');
   });
 
-  test('creates distinct Lambdas for the same subject on different topics', () => {
+  test('uses one Lambda for the same subject on different topics', () => {
     const { stack, topic, rule } = createStackWithRule();
     const other = new sns.Topic(stack, 'OtherTopic');
 
@@ -378,25 +411,77 @@ describe('EventBridgeEmailNotifier', () => {
     }));
 
     const template = Template.fromStack(stack);
-    expectPublisherWiring(template, 2);
+    expectPublisherWiring(template, 1);
+    expect(publishStatementCount(template)).toBe(2);
 
     const targets = ruleTargets(template);
     expect(targets).toHaveLength(2);
-    expect(targetFunctionId(targets[0])).not.toBe(targetFunctionId(targets[1]));
+    expect(targetFunctionId(targets[0])).toBe(targetFunctionId(targets[1]));
     expect(JSON.stringify(targets[0])).toContain('one');
     expect(JSON.stringify(targets[1])).toContain('two');
   });
 
-  test('creates distinct Lambdas when bind is called without an id', () => {
+  test('uses one Lambda when bind is called without an id', () => {
     const { stack, topic, rule } = createStackWithRule();
 
     const alpha = new EventBridgeEmailNotifier(topic, { subject: 'Alpha' }).bind(rule);
     const beta = new EventBridgeEmailNotifier(topic, { subject: 'Beta' }).bind(rule);
 
     const template = Template.fromStack(stack);
-    expect(Object.keys(template.findResources('AWS::Lambda::Function'))).toHaveLength(2);
+    expect(Object.keys(template.findResources('AWS::Lambda::Function'))).toHaveLength(1);
     expect(JSON.stringify(alpha.input?.bind(rule))).toContain('Alpha');
     expect(JSON.stringify(beta.input?.bind(rule))).toContain('Beta');
+  });
+
+  test('uses one publisher for every rule in the stack', () => {
+    const { stack, topic, rule } = createStackWithRule();
+    const other = new events.Rule(stack, 'OtherRule', {
+      eventPattern: { source: ['aws.codepipeline'] },
+    });
+
+    rule.addTarget(new EventBridgeEmailNotifier(topic, { subject: 'First subject' }));
+    other.addTarget(new EventBridgeEmailNotifier(topic, { subject: 'Second subject' }));
+
+    const template = Template.fromStack(stack);
+    template.resourceCountIs('AWS::Lambda::Function', 1);
+    template.resourceCountIs('AWS::Lambda::Permission', 2);
+    template.resourceCountIs('AWS::Events::Rule', 2);
+    expect(publishStatementCount(template)).toBe(1);
+
+    const targets = ruleTargets(template);
+    expect(targets).toHaveLength(2);
+    expect(targetFunctionId(targets[0])).toBe(targetFunctionId(targets[1]));
+  });
+
+  test('creates a publisher in each stack', () => {
+    const app = new App();
+    const left = new Stack(app, 'Left');
+    const right = new Stack(app, 'Right');
+    const leftRule = new events.Rule(left, 'Rule', {
+      eventPattern: { source: ['aws.codepipeline'] },
+    });
+    const rightRule = new events.Rule(right, 'Rule', {
+      eventPattern: { source: ['aws.codepipeline'] },
+    });
+
+    leftRule.addTarget(new EventBridgeEmailNotifier(new sns.Topic(left, 'Topic'), {
+      subject: 'Left subject',
+    }));
+    rightRule.addTarget(new EventBridgeEmailNotifier(new sns.Topic(right, 'Topic'), {
+      subject: 'Right subject',
+    }));
+
+    Template.fromStack(left).resourceCountIs('AWS::Lambda::Function', 1);
+    Template.fromStack(right).resourceCountIs('AWS::Lambda::Function', 1);
+  });
+
+  test('rejects a stack that already uses the publisher construct id', () => {
+    const { stack, topic, rule } = createStackWithRule();
+    new sns.Topic(stack, 'EventBridgeEmailNotifierFunction');
+
+    expect(() => {
+      new EventBridgeEmailNotifier(topic, { subject: 'Busy' }).bind(rule);
+    }).toThrow(/EventBridgeEmailNotifierFunction/);
   });
 
   test('configures EventBridge target DLQ and retry policy', () => {
@@ -508,7 +593,7 @@ const snapshotCases: readonly SnapshotCase[] = [
   },
   {
     name: 'distinct subjects',
-    lambdaCount: 2,
+    lambdaCount: 1,
     arrange: ({ topic, rule }) => {
       rule.addTarget(new EventBridgeEmailNotifier(topic, {
         subject: 'First subject',
@@ -522,7 +607,7 @@ const snapshotCases: readonly SnapshotCase[] = [
     assert: (template) => {
       const targets = ruleTargets(template);
       expect(targets).toHaveLength(2);
-      expect(targetFunctionId(targets[0])).not.toBe(targetFunctionId(targets[1]));
+      expect(targetFunctionId(targets[0])).toBe(targetFunctionId(targets[1]));
       expect(JSON.stringify(targets[0])).toContain('First subject');
       expect(JSON.stringify(targets[0])).not.toContain('Second subject');
       expect(JSON.stringify(targets[1])).toContain('Second subject');

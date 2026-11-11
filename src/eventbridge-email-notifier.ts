@@ -1,4 +1,3 @@
-import { createHash } from 'crypto';
 import { Duration, Names, Stack, Token, TokenComparison, Tokenization } from 'aws-cdk-lib';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -14,12 +13,7 @@ import {
   SNS_SUBJECT_MAX_LENGTH,
 } from './settings/consts';
 
-const PUBLISHER_CONSTRUCT_ID_PREFIX = 'EventBridgeEmailNotifier';
-const PUBLISHER_CONSTRUCT_ID_HASH_LENGTH = 16;
-const PUBLISHER_CONFIG_MARKER_ID = 'PublisherConfig';
-const TEXT_SUBJECT_IDENTITY_PREFIX = 'text:';
-const PATH_SUBJECT_IDENTITY_PREFIX = 'path:';
-const INPUT_SUBJECT_IDENTITY_PREFIX = 'input:';
+const PUBLISHER_FUNCTION_ID = 'EventBridgeEmailNotifierFunction';
 
 /**
  * EventBridge predefined variable for the full event JSON.
@@ -106,9 +100,8 @@ export const sanitizeSnsSubject = (subject: string): string => {
  * transformer. Static subjects are checked at synthesis. Subjects taken from
  * the event are checked on each invocation.
  *
- * On a given rule, publisher Lambdas are keyed by topic ARN and subject
- * specification (sanitized text or event path). Identical specifications reuse
- * one function; different specifications never share.
+ * One publisher Lambda is created per stack. Every target in that stack
+ * invokes it, and the target input carries that target's topic and subject.
  *
  * Email subscriptions are not created here; manage them in the console or API.
  * This target does not change the topic resource policy.
@@ -138,10 +131,9 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
    * Bind this notifier as an EventBridge rule target (Lambda → SNS Publish).
    *
    * The target input is an object with `topicArn`, `subject`, and `message`.
-   * Publisher construct ids are derived from the topic ARN and the subject
-   * specification so targets on the same rule do not share a Lambda across
-   * different subjects or topics. The EventBridge target `id` is accepted for
-   * {@link events.IRuleTarget} compatibility and is not used for the construct id.
+   * The publisher Lambda is a single function on the stack. The EventBridge
+   * target `id` is accepted for {@link events.IRuleTarget} compatibility and
+   * is not used to identify the function.
    *
    * @param rule - Rule that will invoke the publisher Lambda
    * @param _id - EventBridge target id from the rule (unused for construct ids)
@@ -149,22 +141,9 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
    * @throws Error when a static `RuleTargetInput` subject is empty after sanitization
    */
   public bind(rule: events.IRuleRef, _id?: string): events.RuleTargetConfig {
-    const resolvedSubject = resolveSubject(rule, this.topic, this.props.subject);
-    const scope = resolveBindScope(rule, this.topic);
-    const constructId = publisherConstructId(
-      topicIdentity(this.topic),
-      resolvedSubject.identity,
-    );
-
-    const existing = scope.node.tryFindChild(constructId);
-    const handler = existing instanceof lambda.Function
-      ? reusePublisherFunction(
-        existing,
-        this.topic.topicArn,
-        resolvedSubject.identity,
-      )
-      : this.createPublisherFunction(scope, constructId, resolvedSubject.identity);
-
+    const subject = resolveSubject(rule, this.topic, this.props.subject);
+    const handler = publisherFunction(resolutionStack(rule, this.topic));
+    grantTopicPublish(handler, this.topic);
     addLambdaInvokePermission(rule, handler);
 
     if (this.props.deadLetterQueue !== undefined) {
@@ -174,32 +153,10 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
     return {
       ...bindRetryAndDlqConfig(this.props),
       arn: handler.functionArn,
-      input: new PublisherEventInput(this.topic, resolvedSubject, this.props.message),
+      input: new PublisherEventInput(this.topic, subject, this.props.message),
       targetResource: handler,
     };
   }
-
-  private createPublisherFunction(
-    scope: Construct,
-    id: string,
-    subjectIdentity: string,
-  ): lambda.Function {
-    const handler = new SnsPublishFunction(scope, id, {
-      description: 'Publish EventBridge events to SNS with a custom email subject',
-      timeout: Duration.seconds(30),
-    });
-
-    // Topic ARN and subject are target-input fields so a subject can come
-    // from the event. The function is still one per topic and subject specification.
-    new PublisherConfigMarker(handler, this.topic.topicArn, subjectIdentity);
-    this.topic.grantPublish(handler);
-    return handler;
-  }
-}
-
-interface ResolvedSubject {
-  readonly identity: string;
-  readonly input: events.RuleTargetInput;
 }
 
 interface InputFragment {
@@ -212,12 +169,12 @@ interface InputFragment {
  */
 class PublisherEventInput extends events.RuleTargetInput {
   private readonly topic: sns.ITopic;
-  private readonly subject: ResolvedSubject;
+  private readonly subject: events.RuleTargetInput;
   private readonly message: events.RuleTargetInput | undefined;
 
   constructor(
     topic: sns.ITopic,
-    subject: ResolvedSubject,
+    subject: events.RuleTargetInput,
     message: events.RuleTargetInput | undefined,
   ) {
     super();
@@ -273,7 +230,7 @@ const eventFieldPath = (value: string): string | undefined => {
   return resolvable.path;
 };
 
-const textSubject = (subject: string): ResolvedSubject => {
+const textSubject = (subject: string): events.RuleTargetInput => {
   const sanitized = sanitizeSnsSubject(subject);
   if (sanitized.length === 0) {
     throw new Error(
@@ -281,21 +238,15 @@ const textSubject = (subject: string): ResolvedSubject => {
     );
   }
 
-  return {
-    identity: `${TEXT_SUBJECT_IDENTITY_PREFIX}${sanitized}`,
-    input: events.RuleTargetInput.fromText(sanitized),
-  };
+  return events.RuleTargetInput.fromText(sanitized);
 };
 
-const pathSubject = (path: string): ResolvedSubject => {
-  return {
-    identity: `${PATH_SUBJECT_IDENTITY_PREFIX}${path}`,
-    input: events.RuleTargetInput.fromEventPath(path),
-  };
+const pathSubject = (path: string): events.RuleTargetInput => {
+  return events.RuleTargetInput.fromEventPath(path);
 };
 
 /**
- * Normalize a subject to a stable identity and a `RuleTargetInput`.
+ * Normalize a subject to a `RuleTargetInput`.
  *
  * Plain strings and static text are sanitized here. A single event path stays
  * a path so the Lambda sees the value extracted at delivery time.
@@ -304,7 +255,7 @@ const resolveSubject = (
   rule: events.IRuleRef,
   topic: sns.ITopic,
   subject: string | events.RuleTargetInput,
-): ResolvedSubject => {
+): events.RuleTargetInput => {
   if (typeof subject === 'string') {
     const path = eventFieldPath(subject);
     if (path !== undefined) {
@@ -337,15 +288,7 @@ const resolveSubject = (
     return pathSubject(lonePath);
   }
 
-  return {
-    identity: `${INPUT_SUBJECT_IDENTITY_PREFIX}${JSON.stringify({
-      input: materializedInput,
-      inputPath: bound.inputPath,
-      inputPathsMap: bound.inputPathsMap,
-      inputTemplate: materializedTemplate,
-    })}`,
-    input: subject,
-  };
+  return subject;
 };
 
 /**
@@ -379,12 +322,12 @@ const loneEventPath = (
 const bindPublisherInput = (
   rule: events.IRuleRef,
   topic: sns.ITopic,
-  subject: ResolvedSubject,
+  subject: events.RuleTargetInput,
   message: events.RuleTargetInput | undefined,
 ): events.RuleTargetInputProperties => {
   const stack = resolutionStack(rule, topic);
   const subjectFragment = sanitizeConstantSubjectFragment(
-    bindInputFragment(rule, stack, subject.input, PUBLISH_SUBJECT_FIELD),
+    bindInputFragment(rule, stack, subject, PUBLISH_SUBJECT_FIELD),
   );
   const messageFragment = message === undefined
     ? { json: EVENT_JSON_VARIABLE, paths: {} }
@@ -551,90 +494,41 @@ const resolutionStack = (rule: events.IRuleRef, topic: sns.ITopic): Stack => {
   return Stack.of(topic);
 };
 
+const grantedTopicArns = new WeakMap<lambda.IFunction, Set<string>>();
+
 /**
- * Stable topic key for construct ids.
- *
- * A created topic's ARN token includes a process-local index, so hashing the
- * raw token would change the Lambda logical ID on every synth. Resolve it to
- * the CloudFormation reference instead. A literal ARN is already stable.
+ * One publisher for the stack. Topic and subject travel in each target input.
  */
-const topicIdentity = (topic: sns.ITopic): string => {
-  if (!Token.isUnresolved(topic.topicArn)) {
-    return topic.topicArn;
+const publisherFunction = (stack: Stack): lambda.Function => {
+  const existing = stack.node.tryFindChild(PUBLISHER_FUNCTION_ID);
+  if (existing instanceof SnsPublishFunction) {
+    return existing;
   }
 
-  return JSON.stringify(Stack.of(topic).resolve(topic.topicArn));
-};
-
-/**
- * Stable construct id so the same topic and subject specification can share a Lambda.
- */
-const publisherConstructId = (topicKey: string, subjectIdentity: string): string => {
-  const digest = createHash('sha256')
-    .update(topicKey)
-    .update('\0')
-    .update(subjectIdentity)
-    .digest('hex')
-    .slice(0, PUBLISHER_CONSTRUCT_ID_HASH_LENGTH);
-
-  return `${PUBLISHER_CONSTRUCT_ID_PREFIX}${digest}`;
-};
-
-/**
- * Reuse an existing publisher only when the stored topic ARN and subject specification match.
- */
-const reusePublisherFunction = (
-  existing: lambda.Function,
-  topicArn: string,
-  subjectIdentity: string,
-): lambda.Function => {
-  const marker = existing.node.tryFindChild(PUBLISHER_CONFIG_MARKER_ID);
-  if (!(marker instanceof PublisherConfigMarker)) {
+  if (existing !== undefined) {
     throw new Error(
-      `Cannot reuse construct "${existing.node.id}": missing EventBridgeEmailNotifier config marker`,
+      `Cannot create the EventBridge email publisher: "${PUBLISHER_FUNCTION_ID}" already exists on this stack`,
     );
   }
 
-  if (marker.subject !== subjectIdentity) {
-    throw new Error(
-      `Cannot reuse EventBridgeEmailNotifier Lambda "${existing.node.id}": ` +
-      `subject mismatch (existing=${JSON.stringify(marker.subject)}, requested=${JSON.stringify(subjectIdentity)})`,
-    );
-  }
-
-  if (Token.compareStrings(marker.topicArn, topicArn) === TokenComparison.DIFFERENT) {
-    throw new Error(
-      `Cannot reuse EventBridgeEmailNotifier Lambda "${existing.node.id}": ` +
-      `topic ARN mismatch (existing=${JSON.stringify(marker.topicArn)}, requested=${JSON.stringify(topicArn)})`,
-    );
-  }
-
-  return existing;
+  return new SnsPublishFunction(stack, PUBLISHER_FUNCTION_ID, {
+    description: 'Publish EventBridge events to SNS with a custom email subject',
+    timeout: Duration.seconds(30),
+  });
 };
 
 /**
- * Stores publisher config on the Lambda so reuse checks work with Tokens.
+ * Grant sns:Publish once per topic. The singleton role accumulates one statement per topic.
  */
-class PublisherConfigMarker extends Construct {
-  public readonly topicArn: string;
-  public readonly subject: string;
-
-  constructor(scope: Construct, topicArn: string, subject: string) {
-    super(scope, PUBLISHER_CONFIG_MARKER_ID);
-    this.topicArn = topicArn;
-    this.subject = subject;
-  }
-}
-
-/**
- * Prefer the rule construct as scope so resources nest under the rule.
- */
-const resolveBindScope = (rule: events.IRuleRef, topic: sns.ITopic): Construct => {
-  if (Construct.isConstruct(rule)) {
-    return rule;
+const grantTopicPublish = (handler: lambda.IFunction, topic: sns.ITopic): void => {
+  const granted = grantedTopicArns.get(handler) ?? new Set<string>();
+  grantedTopicArns.set(handler, granted);
+  if (granted.has(topic.topicArn)) {
+    return;
   }
 
-  return Stack.of(topic);
+  granted.add(topic.topicArn);
+  topic.grantPublish(handler);
 };
 
 /**
