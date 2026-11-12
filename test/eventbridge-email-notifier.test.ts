@@ -484,6 +484,17 @@ describe('EventBridgeEmailNotifier', () => {
     expect(targetFunctionId(targets[0])).toBe(targetFunctionId(targets[1]));
   });
 
+  test('declares the publisher under the rule with the target id', () => {
+    const { stack, topic, rule } = createStackWithRule();
+
+    rule.addTarget(new EventBridgeEmailNotifier(topic, { subject: 'First subject' }));
+    rule.addTarget(new EventBridgeEmailNotifier(topic, { subject: 'Second subject' }));
+
+    expect(rule.node.tryFindChild('EmailNotifierPublisherTarget0')).toBeDefined();
+    expect(rule.node.tryFindChild('EmailNotifierPublisherTarget1')).toBeDefined();
+    Template.fromStack(stack).resourceCountIs('AWS::Lambda::Function', 1);
+  });
+
   test('creates a publisher in each stack', () => {
     const app = new App();
     const left = new Stack(app, 'Left');

@@ -183,15 +183,15 @@ Subject, message, and EventBridge retry / DLQ options.
 ##### `bind` <a name="bind" id="eventbridge-email-notifier.EventBridgeEmailNotifier.bind"></a>
 
 ```typescript
-public bind(rule: IRuleRef, _id?: string): RuleTargetConfig
+public bind(rule: IRuleRef, id?: string): RuleTargetConfig
 ```
 
 Bind this notifier as an EventBridge rule target (Lambda → SNS Publish).
 
 The target input is an object with `topicArn`, `subject`, and `message`.
 The publisher Lambda is a CDK singleton function, shared per stack by a
-fixed uuid. The EventBridge target `id` is accepted for
-{@link events.IRuleTarget} compatibility and is not used to identify the function.
+fixed uuid. Each bind declares it under the rule, named after the target
+`id`; that declaration does not add a resource.
 
 ###### `rule`<sup>Required</sup> <a name="rule" id="eventbridge-email-notifier.EventBridgeEmailNotifier.bind.parameter.rule"></a>
 
@@ -201,11 +201,11 @@ Rule that will invoke the publisher Lambda.
 
 ---
 
-###### `_id`<sup>Optional</sup> <a name="_id" id="eventbridge-email-notifier.EventBridgeEmailNotifier.bind.parameter._id"></a>
+###### `id`<sup>Optional</sup> <a name="id" id="eventbridge-email-notifier.EventBridgeEmailNotifier.bind.parameter.id"></a>
 
 - *Type:* string
 
-EventBridge target id from the rule (unused for construct ids).
+EventBridge target id from the rule, used to name the publisher declaration.
 
 ---
 

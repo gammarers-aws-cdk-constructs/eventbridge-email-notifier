@@ -138,20 +138,20 @@ export class EventBridgeEmailNotifier implements events.IRuleTarget {
    *
    * The target input is an object with `topicArn`, `subject`, and `message`.
    * The publisher Lambda is a CDK singleton function, shared per stack by a
-   * fixed uuid. The EventBridge target `id` is accepted for
-   * {@link events.IRuleTarget} compatibility and is not used to identify the function.
+   * fixed uuid. Each bind declares it under the rule, named after the target
+   * `id`; that declaration does not add a resource.
    *
    * @param rule - Rule that will invoke the publisher Lambda
-   * @param _id - EventBridge target id from the rule (unused for construct ids)
+   * @param id - EventBridge target id from the rule, used to name the publisher declaration
    * @returns Rule target configuration including retry / DLQ settings
    * @throws Error when a static subject is empty after sanitization
    * @throws Error when the subject or message is not text, an event path, or an object input
    * @throws Error when the subject and message reuse an input path key for different paths
    * @throws Error when `deadLetterQueue` is in a different region from the rule
    */
-  public bind(rule: events.IRuleRef, _id?: string): events.RuleTargetConfig {
+  public bind(rule: events.IRuleRef, id?: string): events.RuleTargetConfig {
     const subject = resolveSubject(rule, this.topic, this.props.subject);
-    const handler = publisherFunction(resolutionStack(rule, this.topic));
+    const handler = publisherFunction(rule, this.topic, id);
     grantTopicPublish(handler, this.topic);
     addLambdaInvokePermission(rule, handler);
 
@@ -514,25 +514,39 @@ const resolutionStack = (rule: events.IRuleRef, topic: sns.ITopic): Stack => {
 };
 
 const grantedTopicArns = new WeakMap<Node, Set<string>>();
-const publisherDeclarations = new WeakMap<Construct, number>();
+const publisherDeclarations = new WeakMap<Stack, number>();
 
 /**
  * Declare the stack publisher. The generated class hardcodes a uuid, and CDK
  * keeps one function per stack for that uuid. Each declaration still needs its
  * own construct id; that wrapper does not create a resource.
  */
-const publisherFunction = (stack: Stack): lambda.IFunction => {
-  return new SnsPublishFunction(stack, publisherDeclarationId(stack), {
+const publisherFunction = (
+  rule: events.IRuleRef,
+  topic: sns.ITopic,
+  targetId: string | undefined,
+): lambda.IFunction => {
+  const props = {
     description: 'Publish EventBridge events to SNS with a custom email subject',
     lambdaPurpose: PUBLISHER_LAMBDA_PURPOSE,
     timeout: Duration.seconds(PUBLISHER_TIMEOUT_SECONDS),
-  });
+  };
+
+  if (rule instanceof Construct && targetId !== undefined) {
+    return new SnsPublishFunction(rule, `EmailNotifierPublisher${targetId}`, props);
+  }
+
+  const stack = resolutionStack(rule, topic);
+  return new SnsPublishFunction(stack, publisherDeclarationId(stack), props);
 };
 
-const publisherDeclarationId = (scope: Construct): string => {
-  const count = publisherDeclarations.get(scope) ?? 0;
-  publisherDeclarations.set(scope, count + 1);
-  return `Publisher${count}`;
+/**
+ * Numbered declaration id on the stack, for a rule reference or a bind without a target id.
+ */
+const publisherDeclarationId = (stack: Stack): string => {
+  const count = publisherDeclarations.get(stack) ?? 0;
+  publisherDeclarations.set(stack, count + 1);
+  return `EventBridgeEmailNotifierPublisher${count}`;
 };
 
 /**
